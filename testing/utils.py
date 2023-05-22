@@ -10,7 +10,6 @@ def plot_waveform(waveform, file="matplotlib.png"):
     plt.savefig(file)  # developing using wsl, but want to work on normal linux, so not messing with backends to make show() work
 
 def plot_spectrograms(spectrogram1, spectrogram2, file="matplotlib.png"):
-    print(spectrogram1.shape, spectrogram2.shape)
     plt.figure()
 
     f, axarr = plt.subplots(1, 2)

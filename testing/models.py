@@ -30,7 +30,7 @@ class EncoderBlock(nn.Module):
             ResidualUnit(int(nOutChannels/2), dilation=3), # in N out N
             ResidualUnit(int(nOutChannels/2), dilation=9) # in N out N
         ])
-        self.conv = weight_norm(nn.Conv1d(int(nOutChannels/2), nOutChannels, kernel_size=2*stride, stride=stride, padding=stride))  # in N out 2N
+        self.conv = weight_norm(nn.Conv1d(int(nOutChannels/2), nOutChannels, kernel_size=2*stride, stride=stride, padding=get_padding(2*stride)))  # in N out 2N
 
     def forward(self, x):
         for unit in self.res_units:
@@ -40,29 +40,76 @@ class EncoderBlock(nn.Module):
         x = F.leaky_relu(x, LEAKY_RELU)
         return x
     
-class Encoder(nn.Module):
-    def __init__(self, endChannels, ups=4, base_width=32) -> None:
+class DecoderBlock(nn.Module): # TODO for encoder + decoder check that padding isn't rediculous
+    """ Encoder block, requires input size to be nOutChannels / 2 """
+    def __init__(self, nOutChannels, stride, kernel) -> None:
         super().__init__()
-        self.conv = weight_norm(nn.Conv1d(1, base_width, kernel_size=7, padding=3))
+        self.res_units = nn.ModuleList([
+            ResidualUnit(int(nOutChannels), dilation=1), # in N out N
+            ResidualUnit(int(nOutChannels), dilation=3), # in N out N
+            ResidualUnit(int(nOutChannels), dilation=9) # in N out N
+        ])
+        self.conv = weight_norm(nn.ConvTranspose1d(nOutChannels*2, nOutChannels, kernel_size=kernel, stride=stride, padding=(kernel-stride) // 2))  # in N out 2N
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = F.leaky_relu(x, LEAKY_RELU)
+        
+        for unit in self.res_units:
+            x = unit(x)
+        
+        return x
+    
+class Encoder(nn.Module):
+    def __init__(self, endChannels, base_width=32) -> None:
+        super().__init__()
+        self.conv = weight_norm(nn.Conv1d(1, base_width, kernel_size=7, padding=get_padding(7)))
         self.ups = nn.ModuleList()
-        upstrides = [2,2,8,8]
+        upstrides = [8,3,2]
 
-        multiplier = 2
+        multiplier = 1
         for i in range(len(upstrides)):
+            multiplier *= 2
             self.ups.append(EncoderBlock(base_width * multiplier, stride=upstrides[i]))
-            multiplier **= 2
 
-        self.conv2 = weight_norm(nn.Conv1d(base_width*multiplier, endChannels, kernel_size=7, padding=3))
+        self.conv2 = weight_norm(nn.Conv1d(base_width*multiplier, endChannels, kernel_size=7, padding=get_padding(7)))
 
 
     def forward(self, x):
-        print(x.shape)
         x = self.conv(x)
         x = F.leaky_relu(x, LEAKY_RELU)
 
         for unit in self.ups:
             x = unit(x)
         
+        x = self.conv2(x)
+        x = F.leaky_relu(x, LEAKY_RELU)
+        return x
+    
+class Decoder(nn.Module):
+    def __init__(self, endChannels, base_width=256) -> None:
+        super().__init__()
+        
+        self.ups = nn.ModuleList()
+        upstrides = [2,3,8]
+        upsample_kernel_sizes = [4, 7, 16]
+        
+        self.conv = weight_norm(nn.Conv1d(endChannels, base_width, kernel_size=7, padding=get_padding(7)))
+
+        size = base_width
+        for i in range(len(upstrides)):
+            self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=upstrides[i], kernel = upsample_kernel_sizes[i]))
+
+        self.conv2 = weight_norm(nn.Conv1d(base_width//(2**(len(upstrides))), 1, kernel_size=7, padding=get_padding(7)))
+
+
+    def forward(self, x):
+        x = self.conv(x)
+        x = F.leaky_relu(x, LEAKY_RELU)
+
+        for unit in self.ups:
+            x = unit(x)
+
         x = self.conv2(x)
         x = F.leaky_relu(x, LEAKY_RELU)
         return x

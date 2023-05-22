@@ -1,6 +1,7 @@
 venv/*
 
 *.png
+*.wav
 
 datasets/*
 !datasets/*.py
