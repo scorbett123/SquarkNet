@@ -9,18 +9,19 @@ from torch import nn
 import models
 
 context_length = 320
+device = "cuda" if torch.cuda.is_available() else "cpu"
 
 data = SpeechDataset(context_length)
 train_dataloader = DataLoader(data, batch_size=64, shuffle=True)
 
 error = nn.L1Loss()
 
-encoder = models.Encoder(context_length, 128).to("cuda")
+encoder = models.Encoder(context_length, 128).to(device)
 #decoder = hificodec.Generator(None).to("cuda")
 
 
 
-spec = transforms.MelSpectrogram(16000).to("cuda")
+spec = transforms.MelSpectrogram(16000).to(device)
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters()), lr=0.0002, betas=[0.5, 0.9])
 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
@@ -32,7 +33,7 @@ av = 0
 for e in range(140):
     encoder.train()
     for truth in train_dataloader:
-        truth = truth.to("cuda")
+        truth = truth.to(device)
         outputs = encoder(torch.clone(truth))
         assert 1==0
         # loss = F.l1_loss(spec(outputs), spec(truth.detach()))
