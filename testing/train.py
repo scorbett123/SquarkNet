@@ -22,7 +22,7 @@ error = nn.L1Loss()
 encoder = models.Encoder(256).to(device)
 decoder = models.Decoder(256).to(device)
 
-
+print("Remember to switch over to using dev-clean dataset instead of dev-other")
 
 spec = transforms.MelSpectrogram(16000).to(device)
 
@@ -38,11 +38,8 @@ for e in range(140):
     encoder.train()
     for truth in train_dataloader:
         truth = truth.to(device)
-        print(truth.shape)
         outputs = encoder(truth)
-        print(outputs.shape)
         predicted_in = decoder(outputs)
-        print(predicted_in.shape)
 
         loss = F.l1_loss(spec(predicted_in), spec(truth.detach()))
         av += loss.item()
