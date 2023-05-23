@@ -8,11 +8,14 @@ import torch.nn.functional as F
 from torch import nn
 import models
 
-context_length = 12000
+context_length = 48 * 50
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-data = SpeechDataset(context_length)
-train_dataloader = DataLoader(data, batch_size=64, shuffle=True)
+train_data = TrainSpeechDataset(context_length)
+valid_loader = ValidateSpeechDataset(48)
+
+train_dataloader = DataLoader(train_data, batch_size=32, shuffle=True)
+valid_loader = DataLoader(valid_loader, batch_size=1)
 
 error = nn.L1Loss()
 
@@ -35,8 +38,11 @@ for e in range(140):
     encoder.train()
     for truth in train_dataloader:
         truth = truth.to(device)
+        print(truth.shape)
         outputs = encoder(truth)
+        print(outputs.shape)
         predicted_in = decoder(outputs)
+        print(predicted_in.shape)
 
         loss = F.l1_loss(spec(predicted_in), spec(truth.detach()))
         av += loss.item()
@@ -48,20 +54,20 @@ for e in range(140):
         optimizer.zero_grad()
         loss.backward()
         optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why aren't we learning anything"
-    print(e, sum(losses[-30:]) / (min(30, len(losses))))
+    #print(e, sum(losses[-30:]) / (min(30, len(losses))))
     if e % 10 == 0:
-        for i in range(3):
-            test = data[i].unsqueeze(0).to("cuda")
+        for i, j in enumerate(valid_loader):
             encoder.eval()
             decoder.eval()
             with torch.no_grad():
-                result = encoder(test)
+                result = encoder(j)
                 result = decoder(result)
                 torchaudio.save(f"{i}-encoded.wav", result[0].to("cpu"), sample_rate=16000)
-                torchaudio.save(f"{i}-clean.wav", test[0].to("cpu"), sample_rate=16000)
-                utils.plot_spectrograms(spec(test[0]), spec(result[0]), file=f"{i}-truth.png")
+                torchaudio.save(f"{i}-clean.wav", j[0].to("cpu"), sample_rate=16000)
+                utils.plot_spectrograms(spec(j[0]), spec(result[0]), file=f"{i}-truth.png")
                 plt.close()
                 plt.clf()
+    
 
 ax = plt.subplot()
 ax.plot([i for i in range(len(losses))], losses )
