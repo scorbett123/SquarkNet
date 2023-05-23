@@ -68,6 +68,6 @@ while True:
                 plt.clf()
     
 
-ax = plt.subplot()
-ax.plot([i for i in range(len(losses))], losses )
-plt.savefig("matplotlib.png")
+        ax = plt.subplot()
+        ax.plot([i for i in range(len(losses))], losses )
+        plt.savefig("matplotlib.png")
