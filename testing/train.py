@@ -22,8 +22,6 @@ error = nn.L1Loss()
 encoder = models.Encoder(256).to(device)
 decoder = models.Decoder(256).to(device)
 
-print("Remember to switch over to using dev-clean dataset instead of dev-other")
-
 spec = transforms.MelSpectrogram(16000).to(device)
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters()), lr=0.0002, betas=[0.5, 0.9])
