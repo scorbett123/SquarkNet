@@ -53,7 +53,7 @@ for e in range(140):
 
         optimizer.zero_grad()
         loss.backward()
-        optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why aren't we learning anything"
+        optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why isn't it learning anything"
     #print(e, sum(losses[-30:]) / (min(30, len(losses))))
     if e % 10 == 0:
         for i, j in enumerate(valid_loader):
