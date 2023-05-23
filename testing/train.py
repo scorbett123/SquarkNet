@@ -34,7 +34,9 @@ av = 0
 
 # print(encoder)
 # print(decoder)
-for e in range(140):
+e = 0
+while True:
+    e+= 1
     encoder.train()
     for truth in train_dataloader:
         truth = truth.to(device)
