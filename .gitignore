@@ -3,6 +3,7 @@ venv/*
 *.png
 *.wav
 *.state
+logs/*
 
 datasets/*
 !datasets/*.py
