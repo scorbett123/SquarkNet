@@ -65,7 +65,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.conv = weight_norm(nn.Conv1d(1, base_width, kernel_size=7, padding=get_padding(7)))
         self.ups = nn.ModuleList()
-        upstrides = [8, 3, 2,]
+        upstrides = [8, 5, 3, 2,]
 
         multiplier = 1
         for i in range(len(upstrides)):
@@ -91,8 +91,8 @@ class Decoder(nn.Module):
         super().__init__()
         
         self.ups = nn.ModuleList()
-        upstrides = [2,3, 8]
-        upsample_kernel_sizes = [4, 7, 16]
+        upstrides = [2, 3, 5, 8]
+        upsample_kernel_sizes = [4, 7, 11, 16]
         
         self.conv = weight_norm(nn.Conv1d(endChannels, base_width, kernel_size=7, padding=get_padding(7)))
 

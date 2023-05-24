@@ -9,9 +9,9 @@ from torch import nn
 import models
 import torch
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter()
+writer = SummaryWriter(log_dir="logs/")
 
-context_length = 240 * 40
+context_length = 48 * 200
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
 train_data = TrainSpeechDataset(context_length)
@@ -26,8 +26,8 @@ encoder = models.Encoder(256).to(device)
 decoder = models.Decoder(256).to(device)
 
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024).to(device)
-encoder.load_state_dict(torch.load("logs/encoder.state"))
-decoder.load_state_dict(torch.load("logs/decoder.state"))
+# encoder.load_state_dict(torch.load("logs/encoder.state"))
+# decoder.load_state_dict(torch.load("logs/decoder.state"))
 
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters()), lr=0.0002, betas=[0.5, 0.9])
@@ -45,6 +45,7 @@ while True:
     for truth in train_dataloader:
         truth = truth.to(device)
         outputs = encoder(truth)
+        print(outputs.shape)
         predicted_in = decoder(outputs)
 
         loss = F.l1_loss(spec(predicted_in), spec(truth.detach()))
@@ -59,6 +60,8 @@ while True:
         optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why isn't it learning anything"
     if len(losses) > 0:
         print(e, losses[-1])
+        writer.add_scalar("loss", losses[-1], e)
+        writer.flush()
     if e % 10 == 0:
         for i, j in enumerate(valid_loader):
             encoder.eval()
