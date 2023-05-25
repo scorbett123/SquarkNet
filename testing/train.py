@@ -8,6 +8,7 @@ import torch.nn.functional as F
 from torch import nn
 import models
 import torch
+import vq
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter(log_dir="logs/")
 
@@ -23,6 +24,7 @@ valid_loader = DataLoader(valid_loader, batch_size=1)
 error = nn.L1Loss()
 
 encoder = models.Encoder(256).to(device)
+quantizer = vq.RVQ(2, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
 
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024).to(device)
@@ -30,12 +32,12 @@ spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, w
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
 
 
-optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters()), lr=0.0002, betas=[0.5, 0.9])
+optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters(), quantizer.parameters()), lr=0.0002, betas=[0.5, 0.9])
 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
 losses = []
 x = 0
 av = 0
-
+torch.autograd.set_detect_anomaly(True)
 # print(encoder)
 # print(decoder)
 e = 0
@@ -45,10 +47,11 @@ while True:
     for truth in train_dataloader:
         truth = truth.to(device)
         outputs = encoder(truth)
-        print(outputs.shape)
+        #print(outputs.shape)
+        outputs, quantizer_loss = quantizer(outputs)
         predicted_in = decoder(outputs)
 
-        loss = F.l1_loss(spec(predicted_in), spec(truth.detach()))
+        loss = F.l1_loss(spec(predicted_in), spec(truth)) + quantizer_loss
         av += loss.item()
         x += 1
         if x % 50 == 0:
@@ -79,6 +82,7 @@ while True:
     
         torch.save(encoder.state_dict(), "logs/encoder.state")
         torch.save(decoder.state_dict(), "logs/decoder.state")
+        torch.save(quantizer.state_dict(), "logs/quantizer.state")
 
         ax = plt.subplot()
         ax.plot([i for i in range(len(losses))], losses )
