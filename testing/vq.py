@@ -1,23 +1,22 @@
 import torch.nn
 import torch.nn.functional as F
+import random
 
 class VQ(torch.nn.Module):
 
-    def __init__(self, codebook_size, codeword_size) -> None:
+    def __init__(self, codebook_size, codeword_size, beta=0.1) -> None:
         super().__init__()
         self.codebook_size = codebook_size
         self.codeword_size = codebook_size
+        self.encoder_fit_vq_factor = beta
 
         self.embedding = torch.nn.Parameter(torch.zeros((codebook_size, codeword_size)))
         torch.nn.init.normal_(self.embedding)  # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
 
 
     def forward(self, x):
-        print(x)
         x = x.transpose(1, 2)  # B C T -> B T C
         dist = torch.sum(x**2, dim=2, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t())
-        print(dist)
-        assert 1== 0
         vals, indexes = torch.min(dist, dim=2) # this isn't differentiable, so need to add in loss later (passthrough loss)
 
         #  Two lines below are just normal style embedding
@@ -27,28 +26,41 @@ class VQ(torch.nn.Module):
         loss1 = F.mse_loss(x.detach(), values)  # only train the embedding
         loss2 = F.mse_loss(x, values.detach())  # only train the encoder
         values = values.transpose(1, 2)  # B T C to B C T
-        print(indexes)
-        return values, indexes, loss1 + loss2
+        return values, indexes, loss1 + loss2 * self.encoder_fit_vq_factor
 
     
     def initialise(self, x): # for now this code doesn't need to be efficient as only run once. My own take on k_means
+        x = x.transpose(1, 2)  # B C T -> B T C
         vectors = x.flatten(end_dim=1)
         unique_vectors = vectors.unique(dim=0)
 
-        random_idx = torch.randperm(vectors.size(dim=0))[:self.codebook_size]
+        random_idx = torch.randperm(unique_vectors.size(dim=0))[:self.codebook_size]
         if random_idx.shape[0] != self.codebook_size:
             print("possible error with not enough unique vectors")
 
-        kmeans_centroids = vectors[random_idx] # initialise the centroids for kmeans on randomly selected points from data
+        kmeans_centroids = unique_vectors[random_idx] # initialise the centroids for kmeans on randomly selected points from data
 
-        for i in range(len(x)): # kmeans iter
+        for i in range(2): # kmeans iter
             # each vector finds its closest centroid
-            distances = torch.sum(vectors**2, dim=1, keepdim=True) + torch.sum(kmeans_centroids**2, dim=1) - 2.0 * torch.matmul(vectors, kmeans_centroids)
+            distances = torch.sum(vectors**2, dim=1, keepdim=True) + torch.sum(kmeans_centroids**2, dim=1) - 2.0 * torch.matmul(vectors, kmeans_centroids.t())
             dists, indexes = torch.min(distances, dim=1)
 
             # for each centroid find the average position
             for i in range(self.codebook_size):
-                cluster_vals = torch.nonzero(indexes == i)
+                cluster_indices = torch.nonzero(indexes == i).squeeze(1)
+                if cluster_indices.shape[0] > 0:
+                    one_hot_eq = F.one_hot(cluster_indices, num_classes=vectors.shape[0]).float()
+                    cluster_vals = torch.matmul(one_hot_eq, vectors)
+                    average = cluster_vals.sum(dim=0) / cluster_indices.shape[0]
+                    
+                    kmeans_centroids[i] = average
+                else:
+                    print(unique_vectors.shape)
+                    random_vector = unique_vectors[random.randint(0, unique_vectors.shape[0]-5)].detach()
+                    kmeans_centroids[i] = random_vector
+        with torch.no_grad():
+            self.embedding[:] = kmeans_centroids[:]
+    
 
 
 
@@ -72,6 +84,13 @@ class RVQ(torch.nn.Module):
             loss = loss+q_loss  # see above
 
         return y_hat, loss
+    
+    def initialise(self, x):
+        residual = x
+        for q in self.quantizers:
+            q.initialise(residual)
+            q_values, _, _ = q(residual)
+            residual = residual - q_values
 
     
 

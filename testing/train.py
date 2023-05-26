@@ -24,7 +24,7 @@ valid_loader = DataLoader(valid_loader, batch_size=1)
 error = nn.L1Loss()
 
 encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(2, 1024, 256).to(device)
+quantizer = vq.RVQ(2, 128, 256).to(device)
 decoder = models.Decoder(256).to(device)
 
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024).to(device)
@@ -40,6 +40,7 @@ av = 0
 torch.autograd.set_detect_anomaly(True)
 # print(encoder)
 # print(decoder)
+encoder_enable_epoch = 3
 e = 0
 while True:
     e+= 1
@@ -48,14 +49,22 @@ while True:
         truth = truth.to(device)
         outputs = encoder(truth)
         #print(outputs.shape)
-        outputs, quantizer_loss = quantizer(outputs)
+        quantizer_loss = 0
+        if e > encoder_enable_epoch:
+            outputs, quantizer_loss = quantizer(outputs)
+        elif e == encoder_enable_epoch:
+            print(outputs.shape)
+            quantizer.initialise(outputs.detach())
+            continue
+
+
         predicted_in = decoder(outputs)
 
         loss = F.l1_loss(spec(predicted_in), spec(truth)) + quantizer_loss
         av += loss.item()
         x += 1
-        if x % 50 == 0:
-            losses.append(av/50)
+        if x % 10 == 0:
+            losses.append(av/10)
             av = 0
 
         optimizer.zero_grad()
