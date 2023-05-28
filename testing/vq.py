@@ -1,21 +1,21 @@
-import torch.nn
+from torch import nn
 import torch.nn.functional as F
 import random
+import torch
 
-class VQ(torch.nn.Module):
+class VQ(nn.Module):
 
-    def __init__(self, codebook_size, codeword_size, beta=0.1) -> None:
+    def __init__(self, codebook_size, codeword_size, n=1, beta=0.1) -> None:
         super().__init__()
         self.codebook_size = codebook_size
         self.codeword_size = codebook_size
         self.encoder_fit_vq_factor = beta
 
-        self.embedding = torch.nn.Parameter(torch.zeros((codebook_size, codeword_size)))
-        torch.nn.init.normal_(self.embedding)  # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
+        self.embedding = nn.Parameter(torch.zeros((codebook_size, codeword_size)))
+        self.embedding.data.uniform_(-1.0 / n, 1.0 / n) # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
 
 
     def forward(self, x):
-        x = x.transpose(1, 2)  # B C T -> B T C
         dist = torch.sum(x**2, dim=2, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t())
         vals, indexes = torch.min(dist, dim=2) # this isn't differentiable, so need to add in loss later (passthrough loss)
 
@@ -25,18 +25,23 @@ class VQ(torch.nn.Module):
 
         loss1 = F.mse_loss(x.detach(), values)  # only train the embedding
         loss2 = F.mse_loss(x, values.detach())  # only train the encoder
-        values = values.transpose(1, 2)  # B T C to B C T
+
+        values = x + (values -x).detach()
+        
         return values, indexes, loss1 + loss2 * self.encoder_fit_vq_factor
 
     
     def initialise(self, x): # for now this code doesn't need to be efficient as only run once. My own take on k_means
+        return # figure out the issues in this
         x = x.transpose(1, 2)  # B C T -> B T C
         vectors = x.flatten(end_dim=1)
         unique_vectors = vectors.unique(dim=0)
+        print(unique_vectors.shape, vectors.shape)
 
         random_idx = torch.randperm(unique_vectors.size(dim=0))[:self.codebook_size]
         if random_idx.shape[0] != self.codebook_size:
             print("possible error with not enough unique vectors")
+            raise Exception("Not enough vectors")
 
         kmeans_centroids = unique_vectors[random_idx] # initialise the centroids for kmeans on randomly selected points from data
 
@@ -55,8 +60,9 @@ class VQ(torch.nn.Module):
                     
                     kmeans_centroids[i] = average
                 else:
-                    print(unique_vectors.shape)
-                    random_vector = unique_vectors[random.randint(0, unique_vectors.shape[0]-5)].detach()
+                    print(dists.shape)
+                    random_vector, _ = torch.max(dists, dim=0) # instead of random initialization as in the paper, initalize to whereever is worst represented
+                    dists = dists[dists[:] == random_vector]
                     kmeans_centroids[i] = random_vector
         with torch.no_grad():
             self.embedding[:] = kmeans_centroids[:]
@@ -71,18 +77,22 @@ class RVQ(torch.nn.Module):
         self.n_residals = n_residuals
         self.codebook_size = codebook_size
         self.codeword_size = codeword_size
-        self.quantizers = torch.nn.ModuleList([VQ(self.codebook_size, self.codeword_size) for i in range(n_residuals)])
+        self.quantizers = nn.ModuleList([VQ(self.codebook_size, self.codeword_size) for i in range(n_residuals)])
 
     def forward(self, x):
+
         y_hat = torch.zeros_like(x)
         residual =  x
         loss = 0
-        for q in self.quantizers:
-            q_values, _, q_loss = q(residual)  # in this we don't actually care about the indices
+        for i, q in enumerate(self.quantizers):
+            q_values, indices, l = q(residual)  # in this we don't actually care about the indices
             residual = residual - q_values  # inplace operators mess with pytorch, so we can't use them
             y_hat = y_hat + q_values  # see above
-            loss = loss+q_loss  # see above
+            loss = loss+l  # see above
 
+        loss = loss / len(self.quantizers)
+        
+        y_hat = x + (y_hat - x).detach() # maintains gradients in x, but removes the ones we don't want in y_hat
         return y_hat, loss
     
     def initialise(self, x):
@@ -91,18 +101,3 @@ class RVQ(torch.nn.Module):
             q.initialise(residual)
             q_values, _, _ = q(residual)
             residual = residual - q_values
-
-    
-
-
-# x = VQ(5, 5)
-# print(x.parameters())
-# optimizer = torch.optim.SGD(x.parameters(), lr=0.01, momentum=0.9)
-
-# for i in range(1000):
-#     values, indexes, loss = x(torch.tensor([[[1, 0, 1, 1, 0], [0, 1, 2, 3, 1]]], dtype=torch.float32))
-#     print(loss)
-
-#     optimizer.zero_grad()
-#     loss.backward()
-#     optimizer.step()

@@ -24,10 +24,10 @@ valid_loader = DataLoader(valid_loader, batch_size=1)
 error = nn.L1Loss()
 
 encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(2, 128, 256).to(device)
+quantizer = vq.RVQ(5, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
 
-spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024).to(device)
+spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024, f_max=8000, f_min=0).to(device)
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
 
@@ -40,24 +40,36 @@ av = 0
 torch.autograd.set_detect_anomaly(True)
 # print(encoder)
 # print(decoder)
-encoder_enable_epoch = 3
+# quantizer_enable_epoch = 2
 e = 0
 while True:
     e+= 1
     encoder.train()
+    decoder.train()
+    quantizer.train()
+    quantize_train = None
     for truth in train_dataloader:
         truth = truth.to(device)
         outputs = encoder(truth)
         #print(outputs.shape)
-        quantizer_loss = 0
-        if e > encoder_enable_epoch:
-            outputs, quantizer_loss = quantizer(outputs)
-        elif e == encoder_enable_epoch:
-            print(outputs.shape)
-            quantizer.initialise(outputs.detach())
-            continue
-
-
+        # quantizer_loss = 0
+        # if e > quantizer_enable_epoch:
+        #     outputs, quantizer_loss = quantizer(outputs)
+        # elif e == quantizer_enable_epoch:
+        #     if quantize_train != None:
+        #         quantize_train = torch.cat((quantize_train, outputs.detach()), dim=0)
+        #     else:
+        #         quantize_train = torch.clone(outputs.detach())
+        #     print("adding")
+        #     if quantize_train.shape[0] > 300:
+        #         break
+        #     continue
+            
+        outputs = torch.transpose(outputs, 1, 2)  # BCT -> BTC
+        #print(outputs.shape)
+        outputs, quantizer_loss = quantizer(outputs)
+        outputs = torch.transpose(outputs, 2,1)  # BTC -> BCT
+        
         predicted_in = decoder(outputs)
 
         loss = F.l1_loss(spec(predicted_in), spec(truth)) + quantizer_loss
@@ -74,7 +86,10 @@ while True:
         print(e, losses[-1])
         writer.add_scalar("loss", losses[-1], e)
         writer.flush()
-    if e % 10 == 0:
+    # if e == quantizer_enable_epoch:
+    #     print(quantize_train.shape)
+    #     quantizer.initialise(quantize_train)
+    if e % 3 == 0:
         for i, j in enumerate(valid_loader):
             encoder.eval()
             decoder.eval()

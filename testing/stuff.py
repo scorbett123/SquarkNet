@@ -14,7 +14,7 @@ class TrainSpeechDataset(Dataset):
         self.clip_lenth = clip_length
 
     def __len__(self):
-        return len(self.audio_files)*10
+        return len(self.audio_files)
 
     def __getitem__(self, index): # TODO add cases when audio ends and we just have blank
         sound, sample_rate = torchaudio.load(self.audio_files[index % len(self.audio_files)])
