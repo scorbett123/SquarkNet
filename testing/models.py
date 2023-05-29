@@ -103,7 +103,6 @@ class Decoder(nn.Module):
         
         self.conv = weight_norm(nn.Conv1d(endChannels, base_width, kernel_size=7, padding=get_padding(7)))
 
-        size = base_width
         for i in range(len(upstrides)):
             self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=upstrides[i], kernel = upsample_kernel_sizes[i]))
 

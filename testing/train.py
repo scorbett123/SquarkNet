@@ -18,7 +18,7 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 train_data = TrainSpeechDataset(context_length)
 valid_loader = ValidateSpeechDataset(48)
 
-train_dataloader = DataLoader(train_data, batch_size=64, shuffle=True)
+train_dataloader = DataLoader(train_data, batch_size=32, shuffle=True)
 valid_loader = DataLoader(valid_loader, batch_size=1)
 
 error = nn.L1Loss()
@@ -30,9 +30,9 @@ decoder = models.Decoder(256).to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024, f_max=8000, f_min=0).to(device)
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
-encoder.load_state_dict(torch.load("logs/encoder.state"))
-decoder.load_state_dict(torch.load("logs/decoder.state"))
-quantizer.load_state_dict(torch.load("logs/quantizer.state"))
+# encoder.load_state_dict(torch.load("logs/encoder.state"))
+# decoder.load_state_dict(torch.load("logs/decoder.state"))
+# quantizer.load_state_dict(torch.load("logs/quantizer.state"))
 
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters(), quantizer.parameters()), lr=0.0002, betas=[0.5, 0.9])
@@ -40,10 +40,9 @@ scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
 losses = []
 x = 0
 av = 0
-torch.autograd.set_detect_anomaly(True)
 # print(encoder)
 # print(decoder)
-# quantizer_enable_epoch = 2
+# quantizer_enable_epoch = 200
 e = 0
 while True:
     e+= 1
@@ -54,8 +53,7 @@ while True:
     for truth in train_dataloader:
         truth = truth.to(device)
         outputs = encoder(truth)
-        #print(outputs.shape)
-        # quantizer_loss = 0
+        quantizer_loss = 0
         # if e > quantizer_enable_epoch:
         #     outputs, quantizer_loss = quantizer(outputs)
         # elif e == quantizer_enable_epoch:
@@ -70,7 +68,7 @@ while True:
             
         outputs = torch.transpose(outputs, 1, 2)  # BCT -> BTC
         #print(outputs.shape)
-        outputs, quantizer_loss = quantizer(outputs)
+        outputs, _, quantizer_loss = quantizer(outputs)
         outputs = torch.transpose(outputs, 2,1)  # BTC -> BCT
         
         predicted_in = decoder(outputs)
@@ -85,6 +83,8 @@ while True:
         optimizer.zero_grad()
         loss.backward()
         optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why isn't it learning anything"
+        
+    scheduler.step()
     if len(losses) > 0:
         print(e, losses[-1])
         writer.add_scalar("loss", losses[-1], e)
@@ -92,7 +92,7 @@ while True:
     # if e == quantizer_enable_epoch:
     #     print(quantize_train.shape)
     #     quantizer.initialise(quantize_train)
-    if e % 3 == 0:
+    if e % 100 == 0:
         for i, j in enumerate(valid_loader):
             encoder.eval()
             decoder.eval()

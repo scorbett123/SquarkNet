@@ -16,7 +16,7 @@ class VQ(nn.Module):
 
 
     def forward(self, x):
-        dist = torch.sum(x**2, dim=2, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t())
+        dist = torch.sum(x**2, dim=2, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t()) # x^2 + y^2 - 2xy
         vals, indexes = torch.min(dist, dim=2) # this isn't differentiable, so need to add in loss later (passthrough loss)
 
         #  Two lines below are just normal style embedding
@@ -29,23 +29,28 @@ class VQ(nn.Module):
         values = x + (values -x).detach()
         
         return values, indexes, loss1 + loss2 * self.encoder_fit_vq_factor
+    
+    
+    def decode(self, indexes):
+        one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
+        values = torch.matmul(one_hot, self.embedding)
+        return values
 
     
     def initialise(self, x): # for now this code doesn't need to be efficient as only run once. My own take on k_means
-        return # figure out the issues in this
         x = x.transpose(1, 2)  # B C T -> B T C
         vectors = x.flatten(end_dim=1)
         unique_vectors = vectors.unique(dim=0)
-        print(unique_vectors.shape, vectors.shape)
 
         random_idx = torch.randperm(unique_vectors.size(dim=0))[:self.codebook_size]
-        if random_idx.shape[0] != self.codebook_size:
-            print("possible error with not enough unique vectors")
-            raise Exception("Not enough vectors")
+        if random_idx.shape[0] < self.codebook_size:
+            mean = torch.mean(vectors)
+            std = torch.std(vectors)
+            return torch.cat((unique_vectors[random_idx], torch.empty((self.codebook_size - random_idx.shape[0]))), dim=0)
 
         kmeans_centroids = unique_vectors[random_idx] # initialise the centroids for kmeans on randomly selected points from data
 
-        for i in range(2): # kmeans iter
+        for i in range(5): # kmeans iter
             # each vector finds its closest centroid
             distances = torch.sum(vectors**2, dim=1, keepdim=True) + torch.sum(kmeans_centroids**2, dim=1) - 2.0 * torch.matmul(vectors, kmeans_centroids.t())
             dists, indexes = torch.min(distances, dim=1)
@@ -80,20 +85,33 @@ class RVQ(torch.nn.Module):
         self.quantizers = nn.ModuleList([VQ(self.codebook_size, self.codeword_size) for i in range(n_residuals)])
 
     def forward(self, x):
-
         y_hat = torch.zeros_like(x)
         residual =  x
         loss = 0
+        indices = None
         for i, q in enumerate(self.quantizers):
-            q_values, indices, l = q(residual)  # in this we don't actually care about the indices
+            q_values, q_i, l = q(residual)  # in this we don't actually care about the indices
             residual = residual - q_values  # inplace operators mess with pytorch, so we can't use them
             y_hat = y_hat + q_values  # see above
             loss = loss+l  # see above
+            q_i = q_i.unsqueeze(2)
+            indices = q_i if indices == None else torch.cat((indices, q_i), dim=2)
 
         loss = loss / len(self.quantizers)
         
         y_hat = x + (y_hat - x).detach() # maintains gradients in x, but removes the ones we don't want in y_hat
-        return y_hat, loss
+        return y_hat, indices, loss
+    
+    def encode(self, data):
+        y_hat, indices, loss = self.forward(data)
+        print(indices.shape)
+        return indices
+
+    def decode(self, indices):
+        result = 0.0
+        for i, q in enumerate(self.quantizers):
+            result += q.decode(indices[:, :, i])
+        return result
     
     def initialise(self, x):
         residual = x
