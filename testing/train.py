@@ -30,6 +30,9 @@ decoder = models.Decoder(256).to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, win_length=1024, f_max=8000, f_min=0).to(device)
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
+encoder.load_state_dict(torch.load("logs/encoder.state"))
+decoder.load_state_dict(torch.load("logs/decoder.state"))
+quantizer.load_state_dict(torch.load("logs/quantizer.state"))
 
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters(), quantizer.parameters()), lr=0.0002, betas=[0.5, 0.9])
