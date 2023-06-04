@@ -8,7 +8,7 @@ import math
 
 class TrainSpeechDataset(Dataset):
     def __init__(self, clip_length):
-        self.audio_files = glob.glob("datasets/speech/*.wav")
+        self.audio_files = glob.glob("datasets/speech_train/*.wav")
         random.Random(12321).shuffle(self.audio_files)  # make them appear in a random order, set seed for reproducibility
         # We have to do the above otherwise it is likely we train on one speaker for a bit, and then move on to another, etc, possibly not generalizing the model then
         self.clip_lenth = clip_length
@@ -18,8 +18,8 @@ class TrainSpeechDataset(Dataset):
 
     def __getitem__(self, index): # TODO add cases when audio ends and we just have blank
         sound, sample_rate = torchaudio.load(self.audio_files[index % len(self.audio_files)])
-        assert sound.shape[0] == 1
-        assert sample_rate == 16000
+        assert sound.shape[0] == 1, "Only mono audio allowed, no stereo"
+        assert sample_rate == 16000, "Sample rate of file isn't 16 kHz"
         if sound.shape[1] > self.clip_lenth:
             start = random.randint(0, sound.shape[1] - self.clip_lenth - 1)
             return sound[:, start: start+self.clip_lenth]
@@ -32,7 +32,7 @@ class TrainSpeechDataset(Dataset):
 class ValidateSpeechDataset(Dataset):
     def __init__(self, clip_length):
         """ all will be multiples of clip_length """
-        self.audio_files = glob.glob("datasets/speech/*.wav")
+        self.audio_files = glob.glob("datasets/speech_valid/*.wav")
         random.Random(12321).shuffle(self.audio_files)  # make them appear in a random order, set seed for reproducibility
         # We have to do the above otherwise it is likely we train on one speaker for a bit, and then move on to another, etc, possibly not generalizing the model then
         self.audio_files = self.audio_files[:5]
@@ -46,6 +46,7 @@ class ValidateSpeechDataset(Dataset):
         assert sound.shape[0] == 1
         assert sample_rate == 16000
 
-        padding = torch.zeros(1, self.clip_lenth * math.ceil(sound.shape[1] / self.clip_lenth))
+        #padding = torch.zeros(1, self.clip_lenth * math.ceil(sound.shape[1] / self.clip_lenth))
+        padding = torch.zeros(1, 16000 * 30)
         padding[:, :sound.shape[1]] = sound
-        return sound
+        return padding

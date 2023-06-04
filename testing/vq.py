@@ -5,14 +5,14 @@ import torch
 
 class VQ(nn.Module):
 
-    def __init__(self, codebook_size, codeword_size, n=1, beta=0.1) -> None:
+    def __init__(self, codebook_size, codeword_size, n=1, beta=0.2) -> None:
         super().__init__()
         self.codebook_size = codebook_size
         self.codeword_size = codebook_size
         self.encoder_fit_vq_factor = beta
 
         self.embedding = nn.Parameter(torch.zeros((codebook_size, codeword_size)))
-        self.embedding.data.uniform_(-1.0 / n, 1.0 / n) # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
+        self.embedding.data.uniform_(-1.0 / (n**2), 1.0 / (n**2)) # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
 
 
     def forward(self, x):

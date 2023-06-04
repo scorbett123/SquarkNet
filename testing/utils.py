@@ -13,7 +13,7 @@ def plot_spectrograms(spectrogram1, spectrogram2, file="matplotlib.png"):
     plt.figure()
 
     f, axarr = plt.subplots(1, 2)
-    axarr[0].imshow(spectrogram1.log2()[0,:,:].to("cpu").numpy())
-    axarr[1].imshow(spectrogram2.log2()[0,:,:].to("cpu").numpy())
+    axarr[0].imshow(spectrogram1.log2()[0,:,:500].to("cpu").numpy(), aspect='auto')
+    axarr[1].imshow(spectrogram2.log2()[0,:,:500].to("cpu").numpy(), aspect='auto')
     f.savefig(file)  # developing using wsl, but want to work on normal linux, so not messing with backends to make show() work
     plt.close()

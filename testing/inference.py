@@ -14,7 +14,7 @@ import file_structure
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(5, 1014, 256).to(device)
+quantizer = vq.RVQ(16, 512, 256).to(device)
 decoder = models.Decoder(256).to(device)
 encoder.load_state_dict(torch.load("logs/encoder.state"))
 decoder.load_state_dict(torch.load("logs/decoder.state"))
