@@ -17,3 +17,7 @@ def plot_spectrograms(spectrogram1, spectrogram2, file="matplotlib.png"):
     axarr[1].imshow(spectrogram2.log2()[0,:,:500].to("cpu").numpy(), aspect='auto')
     f.savefig(file)  # developing using wsl, but want to work on normal linux, so not messing with backends to make show() work
     plt.close()
+
+def norm(tensor):  # TODO check this actually does what I think it does
+    l, _ = torch.max(torch.abs(tensor), dim=-1)
+    return (tensor / l) * 0.80

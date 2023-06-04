@@ -11,10 +11,11 @@ import torch
 import vq
 import argparse
 import file_structure
+from utils import norm
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(16, 512, 256).to(device)
+quantizer = vq.RVQ(8, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
 encoder.load_state_dict(torch.load("logs/encoder.state"))
 decoder.load_state_dict(torch.load("logs/decoder.state"))
@@ -52,6 +53,8 @@ if __name__ == "__main__":
 
     else:
         sound, sample_rate = torchaudio.load(args.filename)
+        sound = norm(sound)
+        torchaudio.save(f"x.wav", sound, sample_rate=16000)
         assert sample_rate == 16000
         padding = torch.zeros(1, 240 * math.ceil(sound.shape[1] / 240))
         padding[:, :sound.shape[1]] = sound

@@ -28,7 +28,7 @@ valid_loader = DataLoader(valid_loader, batch_size=batch_size)
 error = nn.L1Loss()
 
 encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(16, 512, 256).to(device)
+quantizer = vq.RVQ(8, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
 
 custommel = whispertesting.CustomMel().to(device)

@@ -5,6 +5,7 @@ import glob
 import random
 import matplotlib.pyplot as plt
 import math
+import utils
 
 class TrainSpeechDataset(Dataset):
     def __init__(self, clip_length):
@@ -20,6 +21,7 @@ class TrainSpeechDataset(Dataset):
         sound, sample_rate = torchaudio.load(self.audio_files[index % len(self.audio_files)])
         assert sound.shape[0] == 1, "Only mono audio allowed, no stereo"
         assert sample_rate == 16000, "Sample rate of file isn't 16 kHz"
+        sound = utils.norm(sound)  # Want to make sure that we normalize over the whole clip, if we only normalize over our sample, silences may just become noise
         if sound.shape[1] > self.clip_lenth:
             start = random.randint(0, sound.shape[1] - self.clip_lenth - 1)
             return sound[:, start: start+self.clip_lenth]
@@ -43,6 +45,7 @@ class ValidateSpeechDataset(Dataset):
 
     def __getitem__(self, index): # TODO add cases when audio ends and we just have blank
         sound, sample_rate = torchaudio.load(self.audio_files[index % len(self.audio_files)])
+        sound = utils.norm(sound)
         assert sound.shape[0] == 1
         assert sample_rate == 16000
 
