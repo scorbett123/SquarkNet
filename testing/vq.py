@@ -67,7 +67,7 @@ class VQ(nn.Module):
                 else:
                     print(dists.shape)
                     random_vector, _ = torch.max(dists, dim=0) # instead of random initialization as in the paper, initalize to whereever is worst represented
-                    dists = dists[dists[:] == random_vector]
+                    #dists = dists[dists[:] == random_vector]
                     kmeans_centroids[i] = random_vector
         with torch.no_grad():
             self.embedding[:] = kmeans_centroids[:]
@@ -104,7 +104,6 @@ class RVQ(torch.nn.Module):
     
     def encode(self, data):
         y_hat, indices, loss = self.forward(data)
-        print(indices.shape)
         return indices
 
     def decode(self, indices):

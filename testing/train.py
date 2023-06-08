@@ -27,9 +27,9 @@ valid_loader = DataLoader(valid_loader, batch_size=batch_size)
 
 error = nn.L1Loss()
 
-encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(8, 1024, 256).to(device)
-decoder = models.Decoder(256).to(device)
+encoder = models.Encoder(128).to(device)
+quantizer = vq.RVQ(8, 1024, 128).to(device)
+decoder = models.Decoder(128).to(device)
 
 custommel = whispertesting.CustomMel().to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, f_max=8000, f_min=0).to(device)
@@ -120,7 +120,7 @@ while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
         if (steps:=(steps+1)) % TENSORBOARD_INTERAVAL == 0:
             print(f"{steps} steps done")
             for i in losses:
-                writer.add_scalar(f"loss/{i}", sum(losses[i][-TENSORBOARD_INTERAVAL: ])/ min(len(losses["loss"]), TENSORBOARD_INTERAVAL), steps)
+                writer.add_scalar(f"loss/{i}", sum(losses[i][-TENSORBOARD_INTERAVAL: ])/ min(len(losses[i]), TENSORBOARD_INTERAVAL), steps)
             writer.flush()
         if steps % VALID_SAVE_INTERVAL == 0:
             encoder.eval()
