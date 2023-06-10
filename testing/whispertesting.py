@@ -2,7 +2,6 @@ import whisper
 import torch
 import torchaudio
 from stuff import *
-import librosa
 
 class CustomMel(torch.nn.Module):
     def __init__(self) -> None:

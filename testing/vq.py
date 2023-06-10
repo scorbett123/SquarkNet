@@ -14,10 +14,29 @@ class VQ(nn.Module):
         self.embedding = nn.Parameter(torch.zeros((codebook_size, codeword_size)))
         self.embedding.data.uniform_(-1.0 / (n**2), 1.0 / (n**2)) # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
 
+        self.usages = torch.zeros((codebook_size))
+        self.cache = None
+
+
+    def apply_dead(self):
+        indices_of_dead = self.usages == 0
+        indices_of_alive = self.usages > 0
+        print(len(indices_of_dead))
+
+        weighted_average = torch.matmul(self.usages.unsqueeze(2), self.embedding.data.transpose(-1, -2)) / torch.sum(self.usages)
+        if self.cache == None:
+            self.embedding[indices_of_dead, :] = torch.randn((len(indices_of_dead), self.codeword_size))
+        else:
+            self.embedding[indices_of_dead, :] = torch.permute(self.cache, dims=-2)[..., :len(indices_of_dead), :]
+        
+        self.usages = torch.zeros((self.codebook_size))
+
 
     def forward(self, x):
+        self.cache = x.detach()
         dist = torch.sum(x**2, dim=2, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t()) # x^2 + y^2 - 2xy
         vals, indexes = torch.min(dist, dim=2) # this isn't differentiable, so need to add in loss later (passthrough loss)
+        
 
         #  Two lines below are just normal style embedding
         one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
@@ -27,6 +46,8 @@ class VQ(nn.Module):
         loss2 = F.mse_loss(x, values.detach())  # only train the encoder
 
         values = x + (values -x).detach()
+
+        self.usages = self.usages + torch.sum(one_hot.detach(), dim=-2)
         
         return values, indexes, loss1 + loss2 * self.encoder_fit_vq_factor
     
@@ -118,3 +139,7 @@ class RVQ(torch.nn.Module):
             q.initialise(residual)
             q_values, _, _ = q(residual)
             residual = residual - q_values
+
+    def deal_with_dead(self, x):
+        for q in self.quantizers:
+            q.apply_dead()

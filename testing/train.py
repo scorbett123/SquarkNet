@@ -117,6 +117,9 @@ while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
         loss.backward()
         optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why isn't it learning anything"
 
+        if steps % 4 == 0:
+            quantizer.deal_with_dead()
+
         if (steps:=(steps+1)) % TENSORBOARD_INTERAVAL == 0:
             print(f"{steps} steps done")
             for i in losses:
