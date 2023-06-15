@@ -29,9 +29,9 @@ valid_loader = ValidateSpeechDataset(48)
 train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
 valid_loader = DataLoader(valid_loader, batch_size=batch_size)
 
-encoder = models.Encoder(128).to(device)
-quantizer = vq.RVQ(8, 1024, 128).to(device)
-decoder = models.Decoder(128).to(device)
+encoder = models.Encoder(256).to(device)
+quantizer = vq.RVQ(8, 1024, 256).to(device)
+decoder = models.Decoder(256).to(device)
 
 encoder.load_state_dict(torch.load("logs/encoder.state"))
 decoder.load_state_dict(torch.load("logs/decoder.state"))

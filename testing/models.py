@@ -66,7 +66,7 @@ class DecoderBlock(nn.Module): # TODO for encoder + decoder check that padding i
         return x
     
 class Encoder(nn.Module):
-    def __init__(self, endChannels, base_width=8) -> None:
+    def __init__(self, endChannels, base_width=32) -> None:
         super().__init__()
         self.conv = weight_norm(nn.Conv1d(1, base_width, kernel_size=7, padding=get_padding(7)))
         self.ups = nn.ModuleList()
@@ -94,7 +94,7 @@ class Encoder(nn.Module):
         return x
     
 class Decoder(nn.Module):
-    def __init__(self, endChannels, base_width=128) -> None:
+    def __init__(self, endChannels, base_width=256) -> None:
         super().__init__()
         
         self.ups = nn.ModuleList()

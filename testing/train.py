@@ -27,9 +27,9 @@ valid_loader = DataLoader(valid_loader, batch_size=batch_size)
 
 error = nn.L1Loss()
 
-encoder = models.Encoder(128).to(device)
-quantizer = vq.RVQ(8, 1024, 128).to(device)
-decoder = models.Decoder(128).to(device)
+encoder = models.Encoder(256).to(device)
+quantizer = vq.RVQ(8, 1024, 256).to(device)
+decoder = models.Decoder(256).to(device)
 
 custommel = whispertesting.CustomMel().to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, f_max=8000, f_min=0).to(device)
@@ -50,7 +50,7 @@ losses = {"loss" : [], "spec1": [], "spec2": [], "whisper": [], "quantization": 
 def calc_loss(predicted_in, truth, quantizer_loss, eval=False):
     spec_1p = spec(predicted_in)
     spec_1t = spec(truth)
-    loss_spec_1 =  F.mse_loss(spec_1p, spec_1t) / (750 * 4)
+    loss_spec_1 =  F.mse_loss(spec_1p, spec_1t) / (750 * 4 * 4)
     if not eval:
         losses["spec1"].append(loss_spec_1.item())
 
@@ -80,7 +80,7 @@ def calc_loss(predicted_in, truth, quantizer_loss, eval=False):
 # print(decoder)
 # quantizer_enable_epoch = 200
 e = 0
-steps = 0
+steps = 1
 while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
     encoder.train()
     decoder.train()
@@ -117,8 +117,9 @@ while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
         loss.backward()
         optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why isn't it learning anything"
 
-        if steps % 4 == 0:
-            quantizer.deal_with_dead()
+        if steps % 120 == 0:
+            with torch.no_grad():
+                quantizer.deal_with_dead()
 
         if (steps:=(steps+1)) % TENSORBOARD_INTERAVAL == 0:
             print(f"{steps} steps done")
