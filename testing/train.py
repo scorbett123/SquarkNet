@@ -33,7 +33,7 @@ decoder = models.Decoder(256).to(device)
 
 custommel = whispertesting.CustomMel().to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, f_max=8000, f_min=0).to(device)
-whisper = whispertesting.WhisperLoss(context_length, batch_size)
+whisper = whispertesting.WhisperLoss(context_length, batch_size).to(device)
 
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
@@ -81,6 +81,7 @@ def calc_loss(predicted_in, truth, quantizer_loss, eval=False):
 # quantizer_enable_epoch = 200
 e = 0
 steps = 1
+loss = 0
 while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
     encoder.train()
     decoder.train()
@@ -159,7 +160,7 @@ while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
             torch.save(quantizer.state_dict(), "logs/quantizer.state")
         
     scheduler.step()
-    print(f"EPOCH {e} DONE!!!!")
+    print(f"EPOCH {e} DONE!!!! - {loss}")
     
     # if e == quantizer_enable_epoch:
     #     print(quantize_train.shape)

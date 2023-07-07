@@ -2,12 +2,11 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 LEAKY_RELU = 0.2
+INIT_MEAN = 0.0
+INIT_STD = 0.01
 
 def get_padding(kernel_size, dilation=1): # TODO figure out padding
     return int((kernel_size*dilation - dilation)/2)
-
-def init_weights(m, mean=0.0, std=0.01):
-    m.weight.data.normal_(mean, std)
 
 # paper https://arxiv.org/pdf/2009.02095.pdf
 class ResidualUnit(nn.Module):
@@ -16,8 +15,8 @@ class ResidualUnit(nn.Module):
         super().__init__()
         self.conv1 = weight_norm(nn.Conv1d(nChannels, nChannels, kernel_size=3, padding=get_padding(3, dilation), dilation=dilation))
         self.conv2 = weight_norm(nn.Conv1d(nChannels, nChannels, kernel_size=1))
-        self.conv1.apply(init_weights)
-        self.conv2.apply(init_weights)
+        nn.init.normal_(self.conv1.weight, INIT_MEAN, INIT_STD)
+        nn.init.normal_(self.conv2.weight, INIT_MEAN, INIT_STD)
 
     def forward(self, x):
         xt = F.leaky_relu(x, LEAKY_RELU)
@@ -78,7 +77,8 @@ class Encoder(nn.Module):
             self.ups.append(EncoderBlock(base_width * multiplier, stride=upstrides[i]))
 
         self.conv2 = weight_norm(nn.Conv1d(base_width*multiplier, endChannels, kernel_size=7, padding=get_padding(7)))
-        self.conv2.apply(init_weights)
+        nn.init.normal_(self.conv.weight, INIT_MEAN, INIT_STD)
+        nn.init.normal_(self.conv2.weight, INIT_MEAN, INIT_STD)
 
 
     def forward(self, x):
@@ -107,6 +107,8 @@ class Decoder(nn.Module):
             self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=upstrides[i], kernel = upsample_kernel_sizes[i]))
 
         self.conv2 = weight_norm(nn.Conv1d(base_width//(2**(len(upstrides))), 1, kernel_size=7, padding=get_padding(7)))
+        nn.init.normal_(self.conv.weight, INIT_MEAN, INIT_STD)
+        nn.init.normal_(self.conv2.weight, INIT_MEAN, INIT_STD)
 
 
     def forward(self, x):
@@ -120,3 +122,4 @@ class Decoder(nn.Module):
         x = self.conv2(x)
         x = F.tanh(x)
         return x
+    
