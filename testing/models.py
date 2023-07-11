@@ -1,12 +1,13 @@
 from torch import nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
+import math
 LEAKY_RELU = 0.2
 INIT_MEAN = 0.0
 INIT_STD = 0.01
 
-def get_padding(kernel_size, dilation=1): # TODO figure out padding
-    return int((kernel_size*dilation - dilation)/2)
+def get_padding(kernel_size, dilation=1):
+    return math.floor((kernel_size-1) * dilation / 2)
 
 # paper https://arxiv.org/pdf/2009.02095.pdf
 class ResidualUnit(nn.Module):
