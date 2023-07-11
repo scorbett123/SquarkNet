@@ -1,17 +1,17 @@
-from stuff import *
+from model.datasets import *
 import torch
-import utils
+from model import utils
 import matplotlib.pyplot as plt
 import itertools
 from torchaudio import transforms
 import torch.nn.functional as F
 from torch import nn
-import models
+from model import models
 import torch
-import vq
+from model import vq
 import argparse
 import file_structure
-from utils import norm
+from model.utils import norm
 
 device = "cuda" if torch.cuda.is_available() else "cpu"
 encoder = models.Encoder(256).to(device)

@@ -5,7 +5,7 @@ import glob
 import random
 import matplotlib.pyplot as plt
 import math
-import utils
+from model import utils
 
 class TrainSpeechDataset(Dataset):
     def __init__(self, clip_length):

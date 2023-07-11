@@ -1,4 +1,4 @@
-from stuff import *
+from model.datasets import *
 import torch
 import utils
 import matplotlib.pyplot as plt
@@ -9,7 +9,7 @@ from torch import nn
 import models
 import torch
 import vq
-import whispertesting
+import loss_functions
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter(log_dir="logs/")
 
@@ -31,9 +31,9 @@ encoder = models.Encoder(256).to(device)
 quantizer = vq.RVQ(8, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
 
-custommel = whispertesting.CustomMel().to(device)
+custommel = loss_functions.CustomMel().to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, f_max=8000, f_min=0).to(device)
-whisper = whispertesting.WhisperLoss(context_length, batch_size).to(device)
+whisper = loss_functions.WhisperLoss(context_length, batch_size).to(device)
 
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))

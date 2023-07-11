@@ -1,7 +1,7 @@
 import whisper
 import torch
 import torchaudio
-from stuff import *
+from model.datasets import *
 
 class CustomMel(torch.nn.Module):
     def __init__(self) -> None:
@@ -47,56 +47,3 @@ class WhisperLoss(torch.nn.Module):
             x = t
 
         return x.view(-1, 480000)  
-
-
-
-
-
-if __name__ == "__main__":
-    model = whisper.load_model("tiny.en")
-
-    audio, sr = torchaudio.load("2-clean.wav")
-    audio = whisper.pad_or_trim(audio.squeeze(0))
-
-    # print(audio.shape)
-    spec = CustomMel()
-
-    w = whisper.log_mel_spectrogram(audio)
-    m = spec(audio)
-
-    print(torch.nn.functional.l1_loss(w, m))
-
-
-
-
-
-    # audio2 = whisper.load_audio("1-clean.wav")
-    # audio2 = whisper.pad_or_trim(audio2)
-
-    train_data = TrainSpeechDataset(240*40)
-
-    train_dataloader = DataLoader(train_data, batch_size=32, shuffle=True)
-
-
-
-
-    for i in train_dataloader:
-        print(i.shape)
-        print("a")
-
-        i = torch.nn.functional.pad(i, (2700, 2700))
-
-        if i.shape[0] != 32:
-            x = torch.zeros(64, 1, 15000)
-            x[:i.shape[0], ...] = i
-            i = x
-
-        x = i.view(-1, 480000)
-
-        a = spec(x).to("cuda")
-        print(a.shape)
-        print("s")
-        e1 = model.encoder(a) 
-        print(e1.shape)
-        print("e")
-

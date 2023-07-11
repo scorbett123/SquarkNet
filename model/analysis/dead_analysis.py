@@ -1,7 +1,7 @@
 import sys, os
 sys.path.append(os.getcwd() + '/testing') # a dodgy hack to improve
 
-from stuff import *
+from model.datasets import *
 import torch
 import utils
 import matplotlib.pyplot as plt
@@ -12,7 +12,7 @@ from torch import nn
 import models
 import torch
 import vq
-import whispertesting
+import model.loss_functions as loss_functions
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 writer = SummaryWriter(log_dir="logs/")
