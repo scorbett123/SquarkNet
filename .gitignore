@@ -4,6 +4,7 @@ venv/*
 *.wav
 *.state
 logs/*
+logs_*/*
 
 datasets/*
 !datasets/*.py
