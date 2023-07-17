@@ -9,11 +9,11 @@ from torch import nn
 import models
 import torch
 import vq
-import loss_functions
+from model.loss import loss_functions
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter(log_dir="logs/")
 
-context_length = 48 * 200
+context_length = 240*48
 batch_size = 64
 TENSORBOARD_INTERAVAL = 25
 VALID_SAVE_INTERVAL = 100

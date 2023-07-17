@@ -12,7 +12,7 @@ from torch import nn
 import models
 import torch
 import vq
-import model.loss_functions as loss_functions
+from model.loss import loss_functions
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 writer = SummaryWriter(log_dir="logs/")

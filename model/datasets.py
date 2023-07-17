@@ -30,6 +30,30 @@ class TrainSpeechDataset(Dataset):
             padding[:, :sound.shape[1]] = sound
             return sound
         
+class RandomAudioDataset(Dataset):
+    def __init__(self, clip_length, length):
+        self.clip_length = clip_length
+        self.length = length
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        return torch.randn((1, self.clip_length))
+    
+
+class SetAudioDataset(Dataset):
+    def __init__(self, clip_length, length, value):
+        self.clip_length = clip_length
+        self.length = length
+        self.value = value.unsqueeze(0)
+
+    def __len__(self):
+        return self.length
+
+    def __getitem__(self, index):
+        return self.value
+        
 
 class ValidateSpeechDataset(Dataset):
     def __init__(self, clip_length):
