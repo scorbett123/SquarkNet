@@ -96,7 +96,7 @@ class WhisperLoss(Loss):
             xp, yp = torch.squeeze(x, 1), torch.squeeze(y, 1)
 
         xspec, yspec = self.melspec(xp), self.melspec(yp)
-        xw, yw = self.whisper(xspec), self.whisper(yspec)
+        xw, yw = self.get_intermediate(xspec), self.get_intermediate(yspec)
 
         return F.l1_loss(xw, yw) + self.beta * F.mse_loss(xw, yw)
     
@@ -105,5 +105,16 @@ class DiscriminatorLoss(Loss):
     def __init__(self) -> None:
         super().__init__("Discriminator Loss")
 
+    def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:
+        values = torch.maximum(1-discrim_x, torch.tensor([0.]))
+        return torch.mean(values)
+
+
 class DiscriminatorAdversairialLoss(Loss):
-    pass
+    def __init__(self) -> None:
+        super().__init__("Discriminator Adversairial Loss")
+
+    def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:
+        xs = torch.maximum(1-discrim_x, torch.tensor([0.]))
+        ys = torch.maximum(1+discrim_x, torch.tensor([0.]))
+        return torch.mean(xs) + torch.mean(ys)
