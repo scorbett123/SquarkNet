@@ -2,9 +2,32 @@ from torch import nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
 import math
+import torch
 LEAKY_RELU = 0.2
 INIT_MEAN = 0.0
 INIT_STD = 0.01
+
+
+class Models(nn.Module):
+    def __init__(self, encoder: nn.Module, quantizer: nn.Module, decoder: nn.Module, discriminator_model: nn.Module) -> None:  # improve type hints here, probably make a separate quantizer class
+        self.encoder = encoder
+        self.quantizer = quantizer
+        self.decoder = decoder
+        self.discriminator = discriminator_model
+
+    def forward(self, x):
+        """ return in the form y, q_loss """
+        encoded  = self.encoder(x)
+
+        encoded = torch.transpose(encoded, 1, 2)
+        after_q, _, q_loss  = self.quantizer(encoded)
+        after_q = torch.transpose(after_q, 1, 2)
+        y = self.decoder(after_q)
+        return y
+    
+    def discrim_forward(self, x):
+        return self.discriminator(x)
+
 
 def get_padding(kernel_size, dilation=1):
     return math.floor((kernel_size-1) * dilation / 2)
