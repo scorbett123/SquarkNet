@@ -7,7 +7,7 @@ import moving_average
 import torch.nn.functional as F
 
 class Loss(torch.nn.Module):
-    def __init__(self, name) -> None:
+    def __init__(self, name, weight) -> None:
         super().__init__()
         self.name = name
         self.moving_average = moving_average.EMA(100)
@@ -24,8 +24,8 @@ class Loss(torch.nn.Module):
     
 
 class ReconstructionLoss(Loss):
-    def __init__(self, beta=1) -> None:
-        super().__init__("spec1 loss")
+    def __init__(self, weight, beta=1) -> None:
+        super().__init__("spec1 loss", weight)
         self.specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=64, n_fft=256, win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(5, 12)])  #  see if the values here are reasonable, could well be way off
         self.beta = beta
 
@@ -41,9 +41,6 @@ class ReconstructionLoss(Loss):
 
 
 class SetLoss(Loss):
-    def __init__(self, name) -> None:
-        super().__init__(name)
-    
     def get_raw_value(self, raw_value):
         return raw_value
 
@@ -102,19 +99,19 @@ class WhisperLoss(Loss):
     
 
 class DiscriminatorLoss(Loss):
-    def __init__(self) -> None:
-        super().__init__("Discriminator Loss")
+    def __init__(self, weight) -> None:
+        super().__init__("Discriminator Loss", weight)
 
     def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:
-        values = torch.maximum(1-discrim_x, torch.tensor([0.]))
+        values = torch.maximum(1-discrim_y, torch.tensor([0.]))
         return torch.mean(values)
 
 
 class DiscriminatorAdversairialLoss(Loss):
-    def __init__(self) -> None:
-        super().__init__("Discriminator Adversairial Loss")
+    def __init__(self, weight) -> None:
+        super().__init__("Discriminator Adversairial Loss", weight)
 
-    def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:
+    def get_value(self, discrim_x, discrim_y) -> torch.Tensor:  # get value as we don't want to apply weight balancing
         xs = torch.maximum(1-discrim_x, torch.tensor([0.]))
-        ys = torch.maximum(1+discrim_x, torch.tensor([0.]))
+        ys = torch.maximum(1+discrim_y, torch.tensor([0.]))
         return torch.mean(xs) + torch.mean(ys)
