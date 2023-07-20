@@ -3,7 +3,7 @@ import torch
 import torchaudio
 from model.datasets import *
 from model.datasets import torch
-import moving_average
+from model.loss import moving_average
 import torch.nn.functional as F
 
 class Loss(torch.nn.Module):
@@ -19,25 +19,25 @@ class Loss(torch.nn.Module):
     def forward(self, *args):
         return self.get_value(*args)
 
-    def get_raw_value(self, *args) -> torch.Tensor[float]:
+    def get_raw_value(self, *args) -> torch.Tensor:
         raise NotImplemented
     
 
 class ReconstructionLoss(Loss):
     def __init__(self, weight, beta=1) -> None:
         super().__init__("spec1 loss", weight)
-        self.specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=64, n_fft=256, win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(5, 12)])  #  see if the values here are reasonable, could well be way off
+        self.specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=64, n_fft=2 ** (i+1), win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(5, 12)])  #  see if the values here are reasonable, could well be way off
         self.beta = beta
 
     def loss_for_spec(self, x, y, spec):
         xs, ys = spec(x), spec(y)
-        return F.l1_loss(xs, ys) + self.beta * F.mse_loss(ys)
+        return F.l1_loss(xs, ys) + self.beta * F.mse_loss(xs, ys)
 
     def get_raw_value(self, x, y):
         total = 0.0
         for spec in self.specs:
-            total += self.loss_for_spec(x, y, spec)
-        return 
+            total = total + self.loss_for_spec(x, y, spec)
+        return total
 
 
 class SetLoss(Loss):
@@ -62,11 +62,11 @@ class WhisperMel(torch.nn.Module):
         return log
     
 class WhisperLoss(Loss):
-    def __init__(self, context_length, batch_size, beta=1.) -> None:
-        super().__init__("Whisper Loss")
-        assert context_length == 240*40 and batch_size == 64, "TODO: not implemented variable batch and context size"
+    def __init__(self, context_length, batch_size, weight, beta=1.) -> None:
+        super().__init__("Whisper Loss", weight)
+        assert context_length == 240*48 and batch_size == 64, "TODO: not implemented variable batch and context size"
         self.beta = beta
-        self.padding = 2700
+        self.padding = 1500
         self.batch_size = batch_size
         self.full_length = context_length + 2 * self.padding
         
@@ -102,7 +102,7 @@ class DiscriminatorLoss(Loss):
     def __init__(self, weight) -> None:
         super().__init__("Discriminator Loss", weight)
 
-    def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:
+    def get_raw_value(self, discrim_y) -> torch.Tensor:
         values = torch.maximum(1-discrim_y, torch.tensor([0.]))
         return torch.mean(values)
 

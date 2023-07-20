@@ -22,6 +22,8 @@ class Trainer:
         
         self.epoch_num = 0
 
+        torch.autograd.set_detect_anomaly(True)
+
     def run_epoch(self):
         self.models.train()
         for x in self.train_loader:
@@ -29,15 +31,20 @@ class Trainer:
             discrim_x = self.models.discrim_forward(x)
             discrim_y = self.models.discrim_forward(y)
 
-            self.discriminator_optimizer.zero_grad()
-            discrim_loss = self.loss_gen.get_discrim_loss(discrim_x, discrim_y)  # TODO only do this one in every n times
-            discrim_loss.backward()  # TODO see if there is a way to make this stop backpropogating after discrims, and not through the whole model
-            self.discriminator_optimizer.step()
             
             self.model_optimizer.zero_grad()
-            loss = self.loss_gen.get_loss(x, y, discrim_x, discrim_y, q_loss)
-            loss.backward()
+            loss = self.loss_gen.get_loss(x, y, discrim_y, q_loss)
+            loss.backward(retain_graph=True)
+
             self.model_optimizer.step()
+            
+            self.discriminator_optimizer.zero_grad()
+            discrim_x = self.models.discrim_forward(x.detach())  # TODO figure out if there is a cleaner way to do this without requiring two runs through discrim
+            discrim_y = self.models.discrim_forward(y.detach())
+            discrim_loss = self.loss_gen.get_discrim_loss(discrim_x, discrim_y)  # TODO only do this one in every n times
+            discrim_loss.backward()
+            self.discriminator_optimizer.step()
+
 
 
         self.epoch_num += 1

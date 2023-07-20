@@ -10,6 +10,7 @@ INIT_STD = 0.01
 
 class Models(nn.Module):
     def __init__(self, encoder: nn.Module, quantizer: nn.Module, decoder: nn.Module, discriminator_model: nn.Module) -> None:  # improve type hints here, probably make a separate quantizer class
+        super().__init__()
         self.encoder = encoder
         self.quantizer = quantizer
         self.decoder = decoder
@@ -23,7 +24,7 @@ class Models(nn.Module):
         after_q, _, q_loss  = self.quantizer(encoded)
         after_q = torch.transpose(after_q, 1, 2)
         y = self.decoder(after_q)
-        return y
+        return y, q_loss
     
     def discrim_forward(self, x):
         return self.discriminator(x)
