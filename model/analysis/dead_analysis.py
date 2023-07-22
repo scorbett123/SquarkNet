@@ -59,10 +59,10 @@ with torch.no_grad():
 
 print(data.shape)
 for i in range(8):
-    for x in range(3):
-        print(i, x, len((data[i] == x).nonzero(as_tuple=True)[0]))
+    length = torch.sum(data[i])
+    for x in range(100):
+        print(i, x, len((data[i] < (x / 100) * length).nonzero(as_tuple=True)[0]))
     
-    tk = torch.topk(data[i], 10)
-    print(tk)
+    tk = torch.topk(data[i], 100)
     print(torch.sum(data[i]).item())
     print(torch.sum(tk.values).item() / torch.sum(data[i]).item())

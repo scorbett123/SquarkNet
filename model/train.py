@@ -37,9 +37,9 @@ whisper = loss_functions.WhisperLoss(context_length, batch_size).to(device)
 
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
-# encoder.load_state_dict(torch.load("logs/encoder.state"))
-# decoder.load_state_dict(torch.load("logs/decoder.state"))
-# quantizer.load_state_dict(torch.load("logs/quantizer.state"))
+encoder.load_state_dict(torch.load("logs/encoder.state"))
+decoder.load_state_dict(torch.load("logs/decoder.state"))
+quantizer.load_state_dict(torch.load("logs/quantizer.state"))
 
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters(), quantizer.parameters()), lr=0.0002, betas=[0.5, 0.9])
