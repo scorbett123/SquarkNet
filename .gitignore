@@ -4,7 +4,6 @@ venv/*
 *.wav
 *.state
 logs/*
-logs_*/*
 logs*/*
 
 datasets/*

@@ -7,14 +7,25 @@ from model.loss import moving_average
 import torch.nn.functional as F
 
 class Loss(torch.nn.Module):
-    def __init__(self, name, weight) -> None:
+    def __init__(self, name, weight, normalize=True) -> None:
         super().__init__()
         self.name = name
-        self.moving_average = moving_average.EMA(100)
+        self.moving_average = moving_average.EMA(1000, beta=0.99)
+        self.plot_average = moving_average.SMA(25)  # should always be the same as the plot interval, need to figure out a way to make this so
+        self.prev_raw = -1
+        self.previous = []
+        self.weight = weight
+        self.normalize = normalize
         
     def get_value(self, *args):
         raw = self.get_raw_value(*args)
-        return raw / (self.moving_average.update(raw) * 0.999)  # TODO should be applied b4 or after
+        self.prev_raw = raw
+        self.plot_average.update(raw)
+        #return raw
+        if self.normalize:
+            return self.weight * (raw / (self.moving_average.update(raw.item()) * 0.999))  # TODO should be applied b4 or after
+        else:
+            return self.weight * raw
     
     def forward(self, *args):
         return self.get_value(*args)
@@ -22,11 +33,12 @@ class Loss(torch.nn.Module):
     def get_raw_value(self, *args) -> torch.Tensor:
         raise NotImplemented
     
+    
 
-class ReconstructionLoss(Loss):
+class ReconstructionLossFreq(Loss):
     def __init__(self, weight, beta=1) -> None:
-        super().__init__("spec1 loss", weight)
-        self.specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=64, n_fft=2 ** (i+1), win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(5, 12)])  #  see if the values here are reasonable, could well be way off
+        super().__init__("frequency loss", weight)
+        self.specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=80, n_fft=2 ** (i+1), win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(9, 10)])  #  see if the values here are reasonable, could well be way off
         self.beta = beta
 
     def loss_for_spec(self, x, y, spec):
@@ -37,7 +49,25 @@ class ReconstructionLoss(Loss):
         total = 0.0
         for spec in self.specs:
             total = total + self.loss_for_spec(x, y, spec)
-        return total
+        return total / len(self.specs)
+    
+class ReconstructionLossTime(Loss):
+    def __init__(self, weight, **args) -> None:
+        super().__init__("time loss", weight, **args)
+
+    def get_raw_value(self, x, y):
+        return torch.nn.functional.l1_loss(x, y)
+    
+
+class ReconstructionLoss(Loss):
+    def __init__(self, time_weight, freq_weight, beta=1) -> None:
+        super().__init__("Reconstruction Loss", 1, normalize=False)
+        self.time_factor = ReconstructionLossTime(1)
+        self.freq_factor = ReconstructionLossFreq(1)
+
+    def get_raw_value(self, x, y):
+        #return self.loss_for_spec(x, y, self.spec) / (750 * 4 * 4)
+        return self.time_factor(x, y) + self.freq_factor(x, y)
 
 
 class SetLoss(Loss):
@@ -49,7 +79,7 @@ class WhisperMel(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
         self.spectrogram = torchaudio.transforms.Spectrogram(n_fft=400, hop_length=160)
-        self.mel_filters = torchaudio.functional.melscale_fbanks(n_freqs=201, f_max=8000, f_min=0, n_mels=80, sample_rate=16000, norm="slaney", mel_scale="slaney")
+        self.register_buffer("mel_filters", torchaudio.functional.melscale_fbanks(n_freqs=201, f_max=8000, f_min=0, n_mels=80, sample_rate=16000, norm="slaney", mel_scale="slaney"))
 
     def forward(self, x):
         # steps here taken from whisper.log_mel_spectrogram in order to maintain compatability (not have to retrain whisper), but this is much faster
@@ -64,9 +94,9 @@ class WhisperMel(torch.nn.Module):
 class WhisperLoss(Loss):
     def __init__(self, context_length, batch_size, weight, beta=1.) -> None:
         super().__init__("Whisper Loss", weight)
-        assert context_length == 240*48 and batch_size == 64, "TODO: not implemented variable batch and context size"
+        assert context_length == 240*48 and batch_size % 32 == 0, "TODO: not implemented variable batch and context size"
         self.beta = beta
-        self.padding = 1500
+        self.padding = 1740
         self.batch_size = batch_size
         self.full_length = context_length + 2 * self.padding
         
@@ -101,17 +131,21 @@ class WhisperLoss(Loss):
 class DiscriminatorLoss(Loss):
     def __init__(self, weight) -> None:
         super().__init__("Discriminator Loss", weight)
+        self.register_buffer("empty", torch.tensor([0.]))
 
     def get_raw_value(self, discrim_y) -> torch.Tensor:
-        values = torch.maximum(1-discrim_y, torch.tensor([0.]))
+        values = torch.maximum(1-discrim_y, self.empty)
         return torch.mean(values)
 
 
 class DiscriminatorAdversairialLoss(Loss):
     def __init__(self, weight) -> None:
-        super().__init__("Discriminator Adversairial Loss", weight)
+        super().__init__("Discriminator Adversairial Loss", weight, normalize=False)
+        self.register_buffer("empty", torch.tensor([0.]))
 
-    def get_value(self, discrim_x, discrim_y) -> torch.Tensor:  # get value as we don't want to apply weight balancing
-        xs = torch.maximum(1-discrim_x, torch.tensor([0.]))
-        ys = torch.maximum(1+discrim_y, torch.tensor([0.]))
-        return torch.mean(xs) + torch.mean(ys)
+    def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:  # get value as we don't want to apply weight balancing
+        xs = torch.maximum(1-discrim_x, self.empty)
+        ys = torch.maximum(1+discrim_y, self.empty)
+        l = torch.mean(xs) + torch.mean(ys)
+        self.plot_average.update(l)  # keep updating moving average anyway for logging purposes
+        return l
