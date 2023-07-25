@@ -10,6 +10,7 @@ import models
 import torch
 import vq
 from model.loss import loss_functions
+from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 writer = SummaryWriter(log_dir="logs/")
 
@@ -31,20 +32,20 @@ encoder = models.Encoder(256).to(device)
 quantizer = vq.RVQ(8, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
 
-custommel = loss_functions.CustomMel().to(device)
+# custommel = loss_functions.CustomMel().to(device)
 spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, f_max=8000, f_min=0).to(device)
-whisper = loss_functions.WhisperLoss(context_length, batch_size).to(device)
+# whisper = loss_functions.WhisperLoss(context_length, batch_size).to(device)
 
 # encoder.load_state_dict(torch.load("logs/encoder.state"))
 # decoder.load_state_dict(torch.load("logs/decoder.state"))
-encoder.load_state_dict(torch.load("logs/encoder.state"))
-decoder.load_state_dict(torch.load("logs/decoder.state"))
-quantizer.load_state_dict(torch.load("logs/quantizer.state"))
+# encoder.load_state_dict(torch.load("logs/encoder.state"))
+# decoder.load_state_dict(torch.load("logs/decoder.state"))
+# quantizer.load_state_dict(torch.load("logs/quantizer.state"))
 
 
 optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters(), quantizer.parameters()), lr=0.0002, betas=[0.5, 0.9])
 scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
-losses = {"loss" : [], "spec1": [], "spec2": [], "whisper": [], "quantization": []}
+losses = {"loss" : [], "spec1": [], "quantization": []}
 
 
 def calc_loss(predicted_in, truth, quantizer_loss, eval=False):
@@ -54,25 +55,25 @@ def calc_loss(predicted_in, truth, quantizer_loss, eval=False):
     if not eval:
         losses["spec1"].append(loss_spec_1.item())
 
-    if not eval:
-        whisper_batched_p = whisper.process_batch(predicted_in)
-        whisper_batched_t = whisper.process_batch(truth)
-    else:
-        whisper_batched_p = predicted_in.squeeze(1)
-        whisper_batched_t = truth.squeeze(1)
-    spec_2p = custommel(whisper_batched_p)
-    spec_2t = custommel(whisper_batched_t)
-    loss_spec_2 = F.mse_loss(spec_2p, spec_2t) * 20
-    if not eval:
-        losses["spec2"].append(loss_spec_2.item())
+    # if not eval:
+    #     whisper_batched_p = whisper.process_batch(predicted_in)
+    #     whisper_batched_t = whisper.process_batch(truth)
+    # else:
+    #     whisper_batched_p = predicted_in.squeeze(1)
+    #     whisper_batched_t = truth.squeeze(1)
+    # spec_2p = custommel(whisper_batched_p)
+    # spec_2t = custommel(whisper_batched_t)
+    # loss_spec_2 = F.mse_loss(spec_2p, spec_2t) * 20
+    # if not eval:
+    #     losses["spec2"].append(loss_spec_2.item())
 
-    whisper_p = whisper(spec_2p)
-    whisper_t = whisper(spec_2t)
-    loss_whisper = F.mse_loss(whisper_p, whisper_t)
-    if not eval:
-        losses["whisper"].append(loss_whisper.item())
+    # whisper_p = whisper(spec_2p)
+    # whisper_t = whisper(spec_2t)
+    # loss_whisper = F.mse_loss(whisper_p, whisper_t)
+    # if not eval:
+    #     losses["whisper"].append(loss_whisper.item())
 
-    loss = loss_spec_1  + quantizer_loss + loss_spec_2 + loss_whisper
+    loss = loss_spec_1  + quantizer_loss# + loss_spec_2 + loss_whisper
     if not eval:
         losses["loss"].append(loss.item())
     return loss

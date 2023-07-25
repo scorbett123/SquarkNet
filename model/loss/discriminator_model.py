@@ -60,7 +60,7 @@ class STFTDiscriminator(torch.nn.Module):
         return logits.view(logits.shape[0], -1).mean(dim=1) # dunno if this is meant to be here, not mentioned in paper, but makes sense to me... TODO when there is bugs this is probably it
     
 class MultiScaleSTFTDiscriminator(torch.nn.Module):
-    def __init__(self, scales = [2048, 1024, 512, 256, 128]) -> None:
+    def __init__(self, scales = [2048, 1024, 512]) -> None:
         super().__init__()
         self.discrims = torch.nn.ModuleList([STFTDiscriminator(scale) for scale in scales])
 
