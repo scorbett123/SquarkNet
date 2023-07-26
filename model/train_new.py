@@ -36,20 +36,20 @@ class Trainer:
             self.models.train()  # can't be too careful
             x = x.to(self.device)
             y, q_loss = self.models(x)
-            discrim_x = self.models.discrim_forward(x)
-            discrim_y = self.models.discrim_forward(y)
+            discrim_x, feature_x = self.models.discrim_forward(x)
+            discrim_y, feature_y = self.models.discrim_forward(y)
 
             
             self.model_optimizer.zero_grad()
-            loss = self.loss_gen.get_loss(x, y, discrim_y, q_loss)
+            loss = self.loss_gen.get_loss(x, y, discrim_y, feature_x, feature_y, q_loss)
             self.writer.add_scalar("test/main", loss.item(), self.steps)
             loss.backward(retain_graph=True)#(retain_graph=True)
 
             self.model_optimizer.step()
             
             self.discriminator_optimizer.zero_grad()
-            discrim_x = self.models.discrim_forward(x.detach())  # TODO figure out if there is a cleaner way to do this without requiring two runs through discrim
-            discrim_y = self.models.discrim_forward(y.detach())
+            discrim_x, _ = self.models.discrim_forward(x.detach())  # TODO figure out if there is a cleaner way to do this without requiring two runs through discrim
+            discrim_y, _ = self.models.discrim_forward(y.detach())
             discrim_loss = self.loss_gen.get_discrim_loss(discrim_x, discrim_y)  # TODO only do this one in every n times
             
             self.writer.add_scalar("test/discrim", discrim_loss.item(), self.steps)

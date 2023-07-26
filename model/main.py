@@ -21,7 +21,7 @@ def main():
     encoder = models.Encoder(256).to(device)
     quantizer = vq.RVQ(8, 1024, 256).to(device)
     decoder = models.Decoder(256).to(device)
-    discrim = MultiScaleSTFTDiscriminator().to(device)
+    discrim = MultiScaleSTFTDiscriminator(scales=[1024, 512, 256]).to(device)
 
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 

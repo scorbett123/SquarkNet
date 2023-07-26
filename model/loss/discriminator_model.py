@@ -21,54 +21,52 @@ class STFTDiscriminator(torch.nn.Module):
                  scale,
                  kernel_size=(3,8)) -> None:
         super().__init__()
-        self.transform = torchaudio.transforms.Spectrogram(n_fft=(scale - 1) * 2, win_length=scale, normalized=True, power=None, center=False, pad_mode=None)
-        self.conv1 = weight_norm(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=kernel_size, padding=get_padding_nd((3,8), (1,1))))
-        self.conv2 = weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(1,1), padding=get_padding_nd((3,8), (1,1))))
-        self.conv3 = weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(2,1), padding=get_padding_nd((3,8), (2,1))))
-        self.conv4 = weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(4,1), padding=get_padding_nd((3,8), (4,1))))
-        self.conv5 = weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1))))
-        self.conv6 = weight_norm(nn.Conv2d(in_channels=32, out_channels=1, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1))))
+        self.transform = torchaudio.transforms.Spectrogram(n_fft=(scale - 1) * 2, win_length=scale, normalized=False, power=None, center=False, pad_mode=None)
 
-        nn.init.normal_(self.conv1.weight, INIT_MEAN, INIT_STD)
-        nn.init.normal_(self.conv2.weight, INIT_MEAN, INIT_STD)
-        nn.init.normal_(self.conv3.weight, INIT_MEAN, INIT_STD)
-        nn.init.normal_(self.conv4.weight, INIT_MEAN, INIT_STD)
-        nn.init.normal_(self.conv5.weight, INIT_MEAN, INIT_STD)
-        nn.init.normal_(self.conv6.weight, INIT_MEAN, INIT_STD)
+        self.convs = nn.ModuleList([
+            weight_norm(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=kernel_size, padding=get_padding_nd((3,8), (1,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(1,1), padding=get_padding_nd((3,8), (1,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(2,1), padding=get_padding_nd((3,8), (2,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(4,1), padding=get_padding_nd((3,8), (4,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=1, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1))))
+        ])
+
+        for conv in self.convs:
+            nn.init.normal_(conv.weight, INIT_MEAN, INIT_STD)
 
 
-    def forward(self, x):  # really TODO tidy this one up a bit, its a bit of a mess atm
+    def forward(self, x):
         spec: torch.Tensor = self.transform(x)
         spec = torch.cat([spec.real, spec.imag], dim=-1)
         spec = spec.transpose(-1, -2)
-        spec = self.conv1(spec)
-        spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
-        spec = self.conv2(spec)
-        spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
+        internal_activations = []  # will be in form L B X Y
 
-        spec = self.conv3(spec)
-        spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
+        for conv in self.convs:
+            spec = conv(spec)
+            spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
+            internal_activations.append(spec)
+        
+        logits = torch.nn.functional.tanh(spec)
 
-        spec = self.conv4(spec)
-        spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
-
-        spec = self.conv5(spec)
-        spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
-        logits = self.conv6(spec)
-        spec = torch.nn.functional.tanh(spec)
-
-        return logits.view(logits.shape[0], -1).mean(dim=1) # dunno if this is meant to be here, not mentioned in paper, but makes sense to me... TODO when there is bugs this is probably it
+        return logits.view(logits.shape[0], -1).mean(dim=1), internal_activations # dunno if this is meant to be here, not mentioned in paper, but makes sense to me... TODO when there is bugs this is probably it
     
 class MultiScaleSTFTDiscriminator(torch.nn.Module):
-    def __init__(self, scales = [2048, 1024, 512]) -> None:
+    def __init__(self, scales = [2048, 1024, 512, 256, 128]) -> None:
         super().__init__()
         self.discrims = torch.nn.ModuleList([STFTDiscriminator(scale) for scale in scales])
 
     def forward(self, x):
-        result = self.discrims[0](x).unsqueeze(0).transpose(0, 1)
+        logit, disc_feature = self.discrims[0](x)
+        result = logit.unsqueeze(0).transpose(0, 1)
+
+        features = [disc_feature]  # need to use lists :( due to differing lengths of dimensions, too hard to exclude at the other end
+
         for discrim in self.discrims[1:]:
-            result = torch.concat((discrim(x).unsqueeze(0).transpose(0, 1), result), dim=1)
-        return result
+            logit, disc_feature = discrim(x)
+            result = torch.concat((logit.unsqueeze(0).transpose(0, 1), result), dim=1)
+            features.append(disc_feature)
+        return result, features  # D B L X Y to B D L X Y, keep batch first (convention)
 
 if __name__ == "__main__":
     loader = DataLoader(datasets.TrainSpeechDataset(240*48), 20)

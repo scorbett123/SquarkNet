@@ -43,7 +43,7 @@ class ReconstructionLossFreq(Loss):
 
     def loss_for_spec(self, x, y, spec):
         xs, ys = spec(x), spec(y)
-        return F.l1_loss(xs, ys) + self.beta * F.mse_loss(xs, ys)
+        return F.l1_loss(xs, ys) + self.beta * F.mse_loss(xs, ys)  # TODO soundstream seems to take a log here, could fix the problem of mse being so much higher than l1
 
     def get_raw_value(self, x, y):
         total = 0.0
@@ -51,7 +51,7 @@ class ReconstructionLossFreq(Loss):
             total = total + self.loss_for_spec(x, y, spec)
         return total / len(self.specs)
     
-class ReconstructionLossTime(Loss):
+class ReconstructionLossTime(Loss):  # From what I can tell the ONLY purpose of this is making silence actually silent, some noise can escape the freq loss.
     def __init__(self, weight, **args) -> None:
         super().__init__("time loss", weight, **args)
 
@@ -149,3 +149,21 @@ class DiscriminatorAdversairialLoss(Loss):
         l = torch.mean(xs) + torch.mean(ys)
         self.plot_average.update(l)  # keep updating moving average anyway for logging purposes
         return l
+    
+
+class FeatureLoss(Loss):
+    def __init__(self, weight) -> None:
+        super().__init__("Discriminator Feature Loss", weight)
+
+    def get_raw_value(self, feat_x: list[list[torch.Tensor]], feat_y: list[list[torch.Tensor]]) -> torch.Tensor:  # lists are both of the form discim, layer, tensor<b, x, y>
+        total = 0.
+        assert len(feat_x) == len(feat_y)  # these dims should be the same, not prod code either so better to hard crash
+
+        for disc_x, disc_y in zip(feat_x, feat_y):
+            assert len(disc_x) == len(disc_y)  # these dims should be the same, not prod code either so better to hard crash
+            disc_total = 0.
+            for l_x, l_y in zip(disc_x, disc_y):
+                disc_total += torch.nn.functional.l1_loss(l_x, l_y)
+
+            total += disc_total / len(disc_x)     
+        return total / len(feat_x) # the above is just torch.nn.functional.l1_loss(feat_x, feat_y), but we're using lists for some stuff not tensors so have to do it manually
