@@ -34,10 +34,10 @@ def main():
     trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device)
     i = 0
     while True:
-        trainer.run_epoch()
+        trainer.run_epoch(i)
         i += 1
-        trainer.save_model()
-        print("epoch done")
+        trainer.save_model(f"epoch{i}")
+        print("Epoch {i} done")
 
 if __name__ == "__main__":
     main()

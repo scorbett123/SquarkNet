@@ -30,7 +30,7 @@ class Trainer:
         torch.autograd.set_detect_anomaly(True)
         self.steps = 1 # start steps at 1 so that we don't run logging on first step
 
-    def run_epoch(self):
+    def run_epoch(self, epoch_num):
         self.models.train()
         for x in tqdm(self.train_loader):
             self.models.train()  # can't be too careful
@@ -64,7 +64,7 @@ class Trainer:
             if self.steps % 25 == 0:
                 self.loss_gen.plot(self.writer, self.steps)
             if self.steps % 250 == 0:
-                self.gen_samples()
+                self.gen_samples(f"epoch{epoch_num}")
             self.steps += 1
 
 
@@ -74,18 +74,18 @@ class Trainer:
         # self.scheduler_discrim.step()
 
     
-    def save_model(self):
-        torch.save(self.models.encoder.state_dict(), "logs-t/encoder.state")
-        torch.save(self.models.decoder.state_dict(), "logs-t/decoder.state")
-        torch.save(self.models.quantizer.state_dict(), "logs-t/quantizer.state")
+    def save_model(self, folder_name):
+        torch.save(self.models.encoder.state_dict(), f"logs-t/{folder_name}/encoder.state")
+        torch.save(self.models.decoder.state_dict(), f"logs-t/{folder_name}/decoder.state")
+        torch.save(self.models.quantizer.state_dict(), f"logs-t/{folder_name}/quantizer.state")
 
 
-    def gen_samples(self):
+    def gen_samples(self, folder_name):
         self.models.eval()
         for i, case in enumerate(self.valid_loader):
             if i > 5:
                 break
             output, _ = self.models(case.to("cuda"))
-            torchaudio.save(f"samples/{i}-clean.wav", case[0], sample_rate=16000)
-            torchaudio.save(f"samples/{i}-encoded.wav", output.cpu()[0], sample_rate=16000)
+            torchaudio.save(f"samples/{folder_name}/{i}-clean.wav", case[0], sample_rate=16000)
+            torchaudio.save(f"samples/{folder_name}/{i}-encoded.wav", output.cpu()[0], sample_rate=16000)
         self.models.train()
