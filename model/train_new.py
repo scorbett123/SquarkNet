@@ -78,6 +78,7 @@ class Trainer:
         torch.save(self.models.encoder.state_dict(), f"logs-t/{folder_name}/encoder.state")
         torch.save(self.models.decoder.state_dict(), f"logs-t/{folder_name}/decoder.state")
         torch.save(self.models.quantizer.state_dict(), f"logs-t/{folder_name}/quantizer.state")
+        torch.save(self.models.discriminator.state_dict(), f"logs-t/{folder_name}/discriminator.state")
 
 
     def gen_samples(self, folder_name):

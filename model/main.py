@@ -27,9 +27,9 @@ def main():
 
     # encoder.load_state_dict(torch.load("logs/encoder.state"))
     # decoder.load_state_dict(torch.load("logs/decoder.state"))
-    # encoder.load_state_dict(torch.load("logs/encoder.state"))
-    # decoder.load_state_dict(torch.load("logs/decoder.state"))
-    # quantizer.load_state_dict(torch.load("logs/quantizer.state")
+    encoder.load_state_dict(torch.load("logs/encoder.state"))
+    decoder.load_state_dict(torch.load("logs/decoder.state"))
+    quantizer.load_state_dict(torch.load("logs/quantizer.state"))
     m = models.Models(encoder, quantizer, decoder, discrim)
     trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device)
     i = 0
