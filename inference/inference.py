@@ -17,9 +17,9 @@ device = "cuda" if torch.cuda.is_available() else "cpu"
 encoder = models.Encoder(256).to(device)
 quantizer = vq.RVQ(8, 1024, 256).to(device)
 decoder = models.Decoder(256).to(device)
-encoder.load_state_dict(torch.load("logs/encoder.state"))
-decoder.load_state_dict(torch.load("logs/decoder.state"))
-quantizer.load_state_dict(torch.load("logs/quantizer.state"))
+encoder.load_state_dict(torch.load("logs-t/encoder.state"))
+decoder.load_state_dict(torch.load("logs-t/decoder.state"))
+quantizer.load_state_dict(torch.load("logs-t/quantizer.state"))
 
 def codebooks_to_wav(indices):
     tensor = torch.tensor(indices).unsqueeze(0).to("cuda")

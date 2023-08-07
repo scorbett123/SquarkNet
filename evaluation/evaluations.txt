@@ -1,0 +1,19 @@
+# we encode
+    #os.system(f"ffmpeg -i {file} -y -c:a libopus -b:a 1.5k ./evaluation/tmp/tmp.opus >/dev/null 2>&1")
+
+    
+    # x = convert_audio(ref, rate, model.sample_rate, 1, device="cuda")
+    # x = x.unsqueeze(0)
+
+    # with torch.no_grad():
+    #     encoded = model.encode(x)
+    #     decoded = model.decode(encoded)
+
+    # y = convert_audio(decoded, model.sample_rate, rate, 1, device="cuda").squeeze(0)
+
+    # os.system(f"../lyra/lyra/bazel-bin/lyra/cli_example/encoder_main --input_path={file} --output_dir=evaluation/tmp/ --bitrate=12000 --model_path ../lyra/lyra/lyra/model_coeffs >/dev/null 2>&1")
+    # os.system(f"../lyra/lyra/bazel-bin/lyra/cli_example/decoder_main --encoded_path=evaluation/tmp/{file.split('.')[0].split('/')[-1]}.lyra --output_dir=evaluation/tmp/ --bitrate=12000 --model_path ../lyra/lyra/lyra/model_coeffs >/dev/null 2>&1")
+    #os.system(f"ffmpeg -i ./evaluation/tmp/tmp.opus -y -acodec pcm_s16le -ac 1 -ar 16000 ./evaluation/tmp/tmp.wav >/dev/null 2>&1")
+
+
+os.system(f'ffmpeg -to 50 -f lavfi -i "aevalsrc=random(4)" -y -acodec pcm_s16le -ac 1 -ar 16000  ./evaluation/tmp/tmp.wav')

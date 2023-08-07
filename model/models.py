@@ -1,6 +1,8 @@
 from torch import nn
 import torch.nn.functional as F
 from torch.nn.utils import weight_norm
+from model.loss.discriminator_model import MultiScaleSTFTDiscriminator
+from model import vq
 import math
 import torch
 LEAKY_RELU = 0.2
@@ -9,12 +11,16 @@ INIT_STD = 0.01
 
 
 class Models(nn.Module):
-    def __init__(self, encoder: nn.Module, quantizer: nn.Module, decoder: nn.Module, discriminator_model: nn.Module) -> None:  # improve type hints here, probably make a separate quantizer class
+    def __init__(self, n_channels, nbooks, ncodes, sftf_scales=[1024, 512, 256], device="cpu", discrim=True) -> None:  # improve type hints here, probably make a separate quantizer class
         super().__init__()
-        self.encoder = encoder
-        self.quantizer = quantizer
-        self.decoder = decoder
-        self.discriminator = discriminator_model
+
+        self.encoder = Encoder(n_channels).to(device)
+        self.quantizer = vq.RVQ(nbooks, ncodes, n_channels).to(device)
+        self.decoder = Decoder(n_channels).to(device)
+        if discrim:
+            self.discriminator = MultiScaleSTFTDiscriminator(scales=sftf_scales).to(device)
+        else:
+            self.discriminator = None
 
     def forward(self, x):
         """ return in the form y, q_loss """
@@ -28,6 +34,13 @@ class Models(nn.Module):
     
     def discrim_forward(self, x):
         return self.discriminator(x)
+    
+    def load(self, path="logs-t"):
+        self.encoder.load_state_dict(torch.load(f"{path}/encoder.state"))
+        self.decoder.load_state_dict(torch.load(f"{path}/decoder.state"))
+        self.quantizer.load_state_dict(torch.load(f"{path}/quantizer.state"))
+        if self.discriminator != None:  
+            self.discriminator.load_state_dict(torch.load(f"{path}/discriminator.state"))
 
 
 def get_padding(kernel_size, dilation=1):

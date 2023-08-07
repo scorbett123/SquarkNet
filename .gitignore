@@ -3,6 +3,7 @@ venv/*
 *.png
 *.wav
 *.state
+*.sc
 logs/*
 logs*/*
 
