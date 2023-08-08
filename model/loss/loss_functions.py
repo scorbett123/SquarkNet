@@ -91,30 +91,49 @@ class WhisperMel(torch.nn.Module):
         log = (log + 4.0) / 4.0
         return log
     
+
 class WhisperLoss(Loss):
+    WHISPER_EXPECTED = 480000
+    WHISPER_EXPECTED_FACTORS = [7500, 8000, 9600, 10000, 12000, 15000, 16000, 19200, 20000, 24000, 30000, 32000, 40000, 48000, 60000, 80000, 96000, 120000, 160000, 240000, 480000]  # precomputed for performance, low ommitted as they will never be used
+    MIN_PADDING = 2000
+
     def __init__(self, context_length, batch_size, weight, beta=1.) -> None:
         super().__init__("Whisper Loss", weight)
-        assert context_length == 240*48 and batch_size % 32 == 0, "TODO: not implemented variable batch and context size"
         self.beta = beta
-        self.padding = 1740
         self.batch_size = batch_size
-        self.full_length = context_length + 2 * self.padding
+        self.ctx_len = context_length
+
+        self.wanted_bsize, self.padding, self.target_length = self.calc_operations(context_length, batch_size)  #  TODO sort this line out
+        print(self.wanted_bsize, self.padding, self.target_length)
         
         self.whisper = whisper.load_model("tiny.en")
         self.melspec = WhisperMel()
+
+    def calc_operations(self, ctx_len, batch_size):
+        candidates = [i for i in WhisperLoss.WHISPER_EXPECTED_FACTORS if i > ctx_len + WhisperLoss.MIN_PADDING]
+        aimed_length = candidates[0]  # just take the first, will be the most efficient
+        padding = aimed_length - ctx_len
+
+        # stage 2, find the wanted batch size (we will add padding until the required batch size = wanted)
+        amount_per_batch = WhisperLoss.WHISPER_EXPECTED / aimed_length 
+        assert amount_per_batch % 1 == 0   # should always be an int
+        whisper_batch_size = math.ceil(batch_size / amount_per_batch)
+        wanted_batch_size = whisper_batch_size * amount_per_batch
+        return (wanted_batch_size, padding, aimed_length)
+
     
     def get_intermediate(self, x):
         return self.whisper.encoder(x)
     
     def process_batch(self, x):
-        x = torch.nn.functional.pad(x, (self.padding, self.padding))
+        x = torch.nn.functional.pad(x, (0, self.padding))
 
-        if x.shape[0] != self.batch_size:  # make up the dimensions to 
-            t = torch.zeros(self.batch_size, 1, self.full_length).to(x.device)
+        if x.shape[0] != self.wanted_bsize:  # make up the dimensions to 
+            t = torch.zeros(self.wanted_bsize, 1, self.target_length).to(x.device)
             t[:x.shape[0], ...] = x
             x = t
 
-        return x.view(-1, 480000)  
+        return x.view(-1, WhisperLoss.WHISPER_EXPECTED)  
     
     def get_raw_value(self, x, y) -> torch.Tensor:
         if self.training:
