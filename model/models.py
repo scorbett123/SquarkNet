@@ -136,7 +136,7 @@ class Decoder(nn.Module):
         super().__init__()
         
         self.ups = nn.ModuleList()
-        upstrides = [8,6,4,2]
+        upstrides = [8,6,4,2]  # WARNING all these numbers HAVE to be even, otherwise things break
         
         self.conv = weight_norm(nn.Conv1d(endChannels, base_width, kernel_size=7, padding=get_padding(7)))
 
