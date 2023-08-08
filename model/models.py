@@ -44,7 +44,7 @@ class Models(nn.Module):
 
 
 def get_padding(kernel_size, dilation=1):
-    return math.floor((kernel_size-1) * dilation / 2)
+    return ((kernel_size-1) * dilation) // 2
 
 # paper https://arxiv.org/pdf/2009.02095.pdf
 class ResidualUnit(nn.Module):
@@ -83,15 +83,15 @@ class EncoderBlock(nn.Module):
         return x
     
 class DecoderBlock(nn.Module): # TODO for encoder + decoder check that padding isn't rediculous
-    """ Encoder block, requires input size to be nOutChannels / 2 """
-    def __init__(self, nOutChannels, stride, kernel) -> None:
+    """ Decoder block, requires input size to be nOutChannels / 2 """
+    def __init__(self, nOutChannels, stride) -> None:
         super().__init__()
         self.res_units = nn.ModuleList([
             ResidualUnit(int(nOutChannels), dilation=1), # in N out N
             ResidualUnit(int(nOutChannels), dilation=3), # in N out N
             ResidualUnit(int(nOutChannels), dilation=9) # in N out N
         ])
-        self.conv = weight_norm(nn.ConvTranspose1d(nOutChannels*2, nOutChannels, kernel_size=kernel, stride=stride, padding=(kernel-stride) // 2))  # in N out 2N
+        self.conv = weight_norm(nn.ConvTranspose1d(nOutChannels*2, nOutChannels, kernel_size=2*stride, stride=stride, padding=math.ceil((stride) / 2)))  # in 2N out N
 
     def forward(self, x):
         x = self.conv(x)
@@ -107,7 +107,7 @@ class Encoder(nn.Module):
         super().__init__()
         self.conv = weight_norm(nn.Conv1d(1, base_width, kernel_size=7, padding=get_padding(7)))
         self.ups = nn.ModuleList()
-        upstrides = [8, 5, 3, 2,]
+        upstrides = [2,4,6,8]
 
         multiplier = 1
         for i in range(len(upstrides)):
@@ -136,13 +136,12 @@ class Decoder(nn.Module):
         super().__init__()
         
         self.ups = nn.ModuleList()
-        upstrides = [2, 3, 5, 8]
-        upsample_kernel_sizes = [4, 7, 11, 16]
+        upstrides = [8,6,4,2]
         
         self.conv = weight_norm(nn.Conv1d(endChannels, base_width, kernel_size=7, padding=get_padding(7)))
 
         for i in range(len(upstrides)):
-            self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=upstrides[i], kernel = upsample_kernel_sizes[i]))
+            self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=upstrides[i]))
 
         self.conv2 = weight_norm(nn.Conv1d(base_width//(2**(len(upstrides))), 1, kernel_size=7, padding=get_padding(7)))
         nn.init.normal_(self.conv.weight, INIT_MEAN, INIT_STD)

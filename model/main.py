@@ -7,7 +7,7 @@ import train_new
 from model.loss.loss import LossGenerator
 
 def main():
-    context_length = 240*48
+    context_length = 384*32
     batch_size = 32
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
@@ -29,7 +29,7 @@ def main():
     while True:
         trainer.run_epoch(i)
         i += 1
-        trainer.save_model(f"epoch{i}")
+        #trainer.save_model(f"epoch{i}")
         print("Epoch {i} done")
 
 if __name__ == "__main__":
