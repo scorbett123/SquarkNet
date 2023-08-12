@@ -42,6 +42,19 @@ class Models(nn.Module):
         y = self.decoder(after_q)
         return y, q_loss
     
+    def encode(self, x):
+        encoded  = self.encoder(x)
+
+        encoded = torch.transpose(encoded, 1, 2)
+        output = self.quantizer.encode(encoded)
+        return output
+
+    def decode(self, x):
+        after_q = self.quantizer.decode(x)
+        after_q = torch.transpose(after_q, 1, 2)
+        y = self.decoder(after_q)
+        return y
+    
     def discrim_forward(self, x):
         return self.discriminator(x)
     
@@ -70,7 +83,9 @@ class Models(nn.Module):
 
     
     def load(folder_name="logs-t"):
-        m = torch.load(f"logs-t/{folder_name}/models.saved")
+        if not folder_name.endswith("models.saved"):
+            folder_name += "/models.saved"
+        m = torch.load(folder_name)
 
         if hashlib.md5(m["models"]).digest() != m["model_hash"]:
             raise Exception("Invalid hash")

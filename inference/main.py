@@ -1,19 +1,19 @@
 import typing
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGridLayout, QHBoxLayout, QLabel, QFileDialog, QVBoxLayout, QFrame, QSlider
-from PyQt6.QtCore import QSize, Qt
 from PyQt6 import QtCore, QtWidgets
-from PyQt6.QtGui import QPalette, QColor, QFont
 import sys
-import PyQt6
+from model import models
+import inference
 
 
 class FileSelectionWidget(QFrame):
     file_chosen = QtCore.pyqtSignal(str)
-    def __init__(self, name: str, filter: str, open=True) -> None:
+    def __init__(self, name: str, filter: str, open=True, force_ends="") -> None:
         super().__init__()
         self.filter = filter
         self.name = name
         self.open = open
+        self.force_ends = force_ends
         
         self.setObjectName("FileSelectionWidget")
 
@@ -44,17 +44,19 @@ class FileSelectionWidget(QFrame):
     def choose_file(self):
         if self.open:
             fname = QFileDialog.getOpenFileName(self, 'Open file', 
-            '', self.filter)
+            '', self.filter)[0]
+            if not fname.endswith(self.force_ends):
+                fname += self.force_ends
         else:
             fname = QFileDialog.getSaveFileName(self, 'Save file', 
-            '', self.filter)
-        self.filename = fname[0]
-        self._file_name.setText(fname[0] if fname[0] else "No file selected")
-        self.file_chosen.emit(fname[0])
+            '', self.filter)[0]
+        self.filename = fname
+        self._file_name.setText(fname if fname else "No file selected")
+        self.file_chosen.emit(fname)
 
 
 class ModelSelectionWidget(QWidget):
-    updated = QtCore.pyqtSignal(dict)
+    updated = QtCore.pyqtSignal(models.Models)
     def __init__(self):
         super().__init__()
         layout = QVBoxLayout()
@@ -66,39 +68,64 @@ class ModelSelectionWidget(QWidget):
         self.setLayout(layout)
 
     def model_update(self):
-        self.updated.emit({"filename": self.file_select.filename})
+        m = models.Models.load(self.file_select.filename)
+        self.updated.emit(m)
 
 class ModelStatsWidget(QWidget):
     def __init__(self):
         super().__init__()
         layout = QHBoxLayout()
+        self.epochs = QLabel("Epochs: ?")
+        layout.addWidget(self.epochs)
         layout.addWidget(QLabel("Model Stats"))
         self.setLayout(layout)
 
-class EncodeWidget(QWidget):
-    def __init__(self):
+    def update(self, models: models.Models):
+        self.epochs.setText(f"Epochs: {models.epochs}")
+
+
+class EncodeDecodeWidget(QWidget):
+    def __init__(self, name, input_filter, output_filter, output_type):
         super().__init__()
         layout = QVBoxLayout()
-        layout.addWidget(QLabel("Encode"))
-        self.input_select = FileSelectionWidget("Input", "Audio files (*.wav)")
-        self.output_select = FileSelectionWidget("Output", "Audio files (*.sc)", open=False)
+        layout.addWidget(QLabel(name))
+        self.input_select = FileSelectionWidget("Input", input_filter)
+        self.output_select = FileSelectionWidget("Output", output_filter, open=False, force_ends=output_type)
+        self.run_button = QPushButton("Run")
+        self.run_button.setDisabled(True)
+        self.run_button.clicked.connect(self.run)
         layout.addWidget(self.input_select)
         layout.addWidget(self.output_select)
+        layout.addWidget(self.run_button)
         self.setLayout(layout)
 
-class DecodeWidget(QWidget):
+        self.model = None
+
+    def model_set(self, model):
+        self.model = model
+        if model != None:
+            self.run_button.setDisabled(False)
+
+    def run(self):
+        pass
+
+
+class EncodeWidget(EncodeDecodeWidget):
     def __init__(self):
-        super().__init__()
-        layout = QVBoxLayout()
-        layout.addWidget(QLabel("Decode"))
-        self.input_select = FileSelectionWidget("Input", "Audio files (*.sc)")
-        self.output_select = FileSelectionWidget("Output", "Audio files (*.wav)", open=False)
-        layout.addWidget(self.input_select)
-        layout.addWidget(self.output_select)
-        self.setLayout(layout)
+        super().__init__("Encode", "Audio files (*.wav)", "Audio files (*.sc)", output_type=".sc")
+
+    def run(self):
+        inference.wav_to_sc(self.input_select.filename, self.output_select.filename, self.model)
+
+class DecodeWidget(EncodeDecodeWidget):
+    def __init__(self):
+        super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav)", output_type=".wav")
+
+    def run(self):
+        inference.sc_to_wav(self.input_select.filename, self.output_select.filename, self.model)
 
 
-class EncodeDecodeWidget(QFrame):
+class EncodeDecodeContainer(QFrame):
     def __init__(self):
         super().__init__()
         
@@ -123,6 +150,11 @@ class EncodeDecodeWidget(QFrame):
         self.decode.setVisible(value)
         self.encode.setVisible(not value)
 
+    
+    def model_set(self, model):
+        self.encode.model_set(model)
+        self.decode.model_set(model)
+
 
 class MainWindow(QMainWindow):
     def __init__(self):
@@ -131,22 +163,25 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("My App")
         self.model_select = ModelSelectionWidget()
         self.model_stats = ModelStatsWidget()
-        self.encode_decode = EncodeDecodeWidget()
+        self.encode_decode = EncodeDecodeContainer()
         
         layout = QGridLayout()
         layout.addWidget(self.model_select, 0, 0, 2, 2)
         layout.addWidget(self.model_stats, 2, 0, 2, 2)
         layout.addWidget(self.encode_decode, 0, 2, 4, 2)
 
+        self.model_select.updated.connect(self.model_stats.update)
         self.model_select.updated.connect(self.on_model_select)
+        self.model_select.updated.connect(self.encode_decode.model_set)
 
+        self.model = None
 
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
 
-    def on_model_select(self, model_params):
-        print(model_params)
+    def on_model_select(self, model):
+        self.model = model
 
 
 

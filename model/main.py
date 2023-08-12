@@ -20,7 +20,7 @@ def main():
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
     # m = models.Models(192, 4, 1024, device=device)
-    m = models.Models.load("epoch6").to(device)
+    m = models.Models.load("logs-t/epoch6").to(device)
     trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device)
     while True:
         trainer.run_epoch()
