@@ -8,9 +8,11 @@ import math
 from model import utils
 
 class TrainSpeechDataset(Dataset):
-    def __init__(self, clip_length):
+    def __init__(self, clip_length, length=None):
         self.audio_files = glob.glob("datasets/speech_train/*.wav")
         random.Random(12321).shuffle(self.audio_files)  # make them appear in a random order, set seed for reproducibility
+        if length != None:
+            self.audio_files = self.audio_files[:length]
         # We have to do the above otherwise it is likely we train on one speaker for a bit, and then move on to another, etc, possibly not generalizing the model then
         self.clip_lenth = clip_length
 

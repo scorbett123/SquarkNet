@@ -115,8 +115,7 @@ class WhisperLoss(Loss):
         padding = aimed_length - ctx_len
 
         # stage 2, find the wanted batch size (we will add padding until the required batch size = wanted)
-        amount_per_batch = WhisperLoss.WHISPER_EXPECTED / aimed_length 
-        assert amount_per_batch % 1 == 0   # should always be an int
+        amount_per_batch = int(WhisperLoss.WHISPER_EXPECTED / aimed_length)
         whisper_batch_size = math.ceil(batch_size / amount_per_batch)
         wanted_batch_size = whisper_batch_size * amount_per_batch
         return (wanted_batch_size, padding, aimed_length)

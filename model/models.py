@@ -4,15 +4,25 @@ from torch.nn.utils import weight_norm
 from model.loss.discriminator_model import MultiScaleSTFTDiscriminator
 from model import vq
 import math
+import os
 import torch
+import gzip
+import hashlib
+import json
+import io
 LEAKY_RELU = 0.2
 INIT_MEAN = 0.0
 INIT_STD = 0.01
 
 
 class Models(nn.Module):
-    def __init__(self, n_channels, nbooks, ncodes, sftf_scales=[1024, 512, 256], device="cpu", discrim=True) -> None:  # improve type hints here, probably make a separate quantizer class
+    def __init__(self, n_channels, nbooks, ncodes, epochs=0, sftf_scales=[1024, 512, 256], device="cpu", discrim=True) -> None:  # improve type hints here, probably make a separate quantizer class
         super().__init__()
+        self.n_channels = n_channels
+        self.nbooks = nbooks
+        self.ncodes = ncodes
+        self.stft_scales = sftf_scales
+        self.epochs = epochs
 
         self.encoder = Encoder(n_channels).to(device)
         self.quantizer = vq.RVQ(nbooks, ncodes, n_channels).to(device)
@@ -35,12 +45,41 @@ class Models(nn.Module):
     def discrim_forward(self, x):
         return self.discriminator(x)
     
-    def load(self, path="logs-t"):
-        self.encoder.load_state_dict(torch.load(f"{path}/encoder.state"))
-        self.decoder.load_state_dict(torch.load(f"{path}/decoder.state"))
-        self.quantizer.load_state_dict(torch.load(f"{path}/quantizer.state"))
-        if self.discriminator != None:  
-            self.discriminator.load_state_dict(torch.load(f"{path}/discriminator.state"))
+    def save(self, folder_name):
+        os.makedirs(f"logs-t/{folder_name}", exist_ok = True) 
+        buffer = io.BytesIO()
+        torch.save(self.state_dict(), buffer)
+        buffer.seek(0)
+        model_files = buffer.read()
+        model_hash = hashlib.md5(model_files).digest()
+
+        params = {
+            "n_channels": self.n_channels,
+            "ncodes": self.ncodes,
+            "nbooks": self.nbooks,
+            "epochs": self.epochs
+        }
+
+        result = {
+            "model_hash": model_hash,
+            "params": params,
+            "models": model_files
+        }
+        
+        torch.save(result, f"logs-t/{folder_name}/models.saved")
+
+    
+    def load(folder_name="logs-t"):
+        m = torch.load(f"logs-t/{folder_name}/models.saved")
+
+        if hashlib.md5(m["models"]).digest() != m["model_hash"]:
+            raise Exception("Invalid hash")
+        
+        model_statedict = torch.load(io.BytesIO(m["models"]))
+        params = m["params"]
+        models = Models(params["n_channels"], params["nbooks"], params["ncodes"], epochs=params["epochs"])
+        models.load_state_dict(model_statedict)
+        return models
 
 
 def get_padding(kernel_size, dilation=1):

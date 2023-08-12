@@ -5,6 +5,7 @@ from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
 from tqdm import tqdm
 import torchaudio
+import os
 
 
 class Trainer:
@@ -24,13 +25,12 @@ class Trainer:
         self.scheduler_model = torch.optim.lr_scheduler.ExponentialLR(self.model_optimizer, gamma=gamma)
         self.scheduler_discrim = torch.optim.lr_scheduler.ExponentialLR(self.discriminator_optimizer, gamma=gamma)
         
-        self.epoch_num = 0
         self.writer = SummaryWriter(log_dir="logs-t/")
 
         torch.autograd.set_detect_anomaly(True)
         self.steps = 1 # start steps at 1 so that we don't run logging on first step
 
-    def run_epoch(self, epoch_num):
+    def run_epoch(self):
         self.models.train()
         for x in tqdm(self.train_loader):
             self.models.train()  # can't be too careful
@@ -64,25 +64,20 @@ class Trainer:
             if self.steps % 25 == 0:
                 self.loss_gen.plot(self.writer, self.steps)
             if self.steps % 250 == 0:
-                self.gen_samples(f"epoch{epoch_num}")
+                self.gen_samples(f"epoch{self.models.epochs}")
             self.steps += 1
 
-
-
-        self.epoch_num += 1
         self.scheduler_model.step()
-        # self.scheduler_discrim.step()
+        self.scheduler_discrim.step()
 
     
     def save_model(self, folder_name):
-        torch.save(self.models.encoder.state_dict(), f"logs-t/{folder_name}/encoder.state")
-        torch.save(self.models.decoder.state_dict(), f"logs-t/{folder_name}/decoder.state")
-        torch.save(self.models.quantizer.state_dict(), f"logs-t/{folder_name}/quantizer.state")
-        torch.save(self.models.discriminator.state_dict(), f"logs-t/{folder_name}/discriminator.state")
+        self.models.save(folder_name)
 
 
     def gen_samples(self, folder_name):
         self.models.eval()
+        os.makedirs(f"samples/{folder_name}", exist_ok = True) 
         for i, case in enumerate(self.valid_loader):
             if i > 5:
                 break

@@ -1,5 +1,5 @@
 import torch
-import datasets
+from model import datasets
 import models
 from torch.utils.data import DataLoader
 import vq
@@ -11,7 +11,7 @@ def main():
     batch_size = 32
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    train_data = datasets.TrainSpeechDataset(context_length)
+    train_data = datasets.TrainSpeechDataset(context_length, length=100)
     valid_loader = datasets.ValidateSpeechDataset(48)
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
@@ -19,18 +19,14 @@ def main():
 
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
-    # encoder.load_state_dict(torch.load("logs/encoder.state"))
-    # decoder.load_state_dict(torch.load("logs/decoder.state"))
-
-    # intermediate channels, nbooks, ncodes, discrim steps
-    m = models.Models(192, 4, 1024, device=device)
+    # m = models.Models(192, 4, 1024, device=device)
+    m = models.Models.load("epoch6").to(device)
     trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device)
-    i = 0
     while True:
-        trainer.run_epoch(i)
-        i += 1
-        #trainer.save_model(f"epoch{i}")
-        print("Epoch {i} done")
+        trainer.run_epoch()
+        m.epochs += 1
+        trainer.save_model(f"epoch{m.epochs}")
+        print(f"Epoch {m.epochs} done")
 
 if __name__ == "__main__":
     main()
