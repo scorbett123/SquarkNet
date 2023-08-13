@@ -45,10 +45,10 @@ class File:
 
         writer.write_byte(0) # write a padding byte, not really needed, but makes analysis easier
 
+        x = 0
         for sample in self.data:
             for codebook in sample:
                 writer.write_n_bits(codebook, self.data_bit_depth)
-
 
         writer.close()
 

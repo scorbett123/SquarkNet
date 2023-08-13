@@ -31,7 +31,7 @@ def wav_to_sc(path, output_path, model: models.Models):
     audio_data = sound.unsqueeze(0)
     codebooks = model.encode(audio_data)
 
-    f = file_structure.File(codebooks.squeeze(0), data_bit_depth=model.ncodes, n_codebooks=model.nbooks)
+    f = file_structure.File(codebooks.squeeze(0), data_bit_depth=math.ceil(math.log2(model.ncodes)), n_codebooks=model.nbooks)
     f.write(output_path)
     print("done")
 

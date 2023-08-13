@@ -4,6 +4,7 @@ from PyQt6 import QtCore, QtWidgets
 import sys
 from model import models
 import inference
+import math
 
 
 class FileSelectionWidget(QFrame):
@@ -74,14 +75,26 @@ class ModelSelectionWidget(QWidget):
 class ModelStatsWidget(QWidget):
     def __init__(self):
         super().__init__()
-        layout = QHBoxLayout()
-        self.epochs = QLabel("Epochs: ?")
-        layout.addWidget(self.epochs)
+        layout = QVBoxLayout()
         layout.addWidget(QLabel("Model Stats"))
+        self.epochs = QLabel("Epochs: ?")
+        self.ncodes = QLabel("Codes: ?")
+        self.nbooks = QLabel("Codebooks: ?")
+        self.bitrate = QLabel("Bitrate: ?")
+
+        layout.addWidget(self.epochs)
+        layout.addWidget(self.ncodes)
+        layout.addWidget(self.nbooks)
+        layout.addWidget(self.bitrate)
         self.setLayout(layout)
 
     def update(self, models: models.Models):
         self.epochs.setText(f"Epochs: {models.epochs}")
+        self.ncodes.setText(f"Codes: {models.ncodes}")
+        self.nbooks.setText(f"Books: {models.nbooks}")
+
+        # bitrate = math.ceil(math.log2(models.ncodes) * models.nbooks)
+        # self.bitrate.setText(f"Bitrate: {round(bitrate / 1000, 1)} kbps")
 
 
 class EncodeDecodeWidget(QWidget):
