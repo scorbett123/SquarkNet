@@ -6,6 +6,7 @@ import file_structure
 from model.utils import norm
 import torchaudio
 
+@torch.no_grad()
 def sc_to_wav(path, output_path, model: models.Models):
     if not output_path.endswith(".wav"):
         output_path += ".wav"
@@ -19,6 +20,7 @@ def sc_to_wav(path, output_path, model: models.Models):
     print("done")
 
 
+@torch.no_grad()
 def wav_to_sc(path, output_path, model: models.Models):
     if not output_path.endswith(".sc"):
         output_path += ".sc"
