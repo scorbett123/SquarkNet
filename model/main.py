@@ -11,7 +11,7 @@ def main():
     batch_size = 32
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    train_data = datasets.TrainSpeechDataset(context_length, length=100)
+    train_data = datasets.TrainSpeechDataset(context_length)
     valid_loader = datasets.ValidateSpeechDataset(48)
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)

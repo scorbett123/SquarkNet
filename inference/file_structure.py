@@ -1,9 +1,11 @@
 from operator import ior
 import functools
 from typing import Iterator
+import timeit
+import math
 
 class File:
-    MAGIC_NUM = 0x12321232  # TODO think of a more meaningful magic number, has to be 8 hex digits
+    MAGIC_NUM = 0x12121212  # TODO think of a more meaningful magic number, has to be 8 hex digits
     @staticmethod
     def read(filepath):
         reader = FileReader(filepath)
@@ -28,14 +30,16 @@ class File:
         
     def __init__(self, data: Iterator[Iterator[int]], data_bit_depth: int, length=None, n_codebooks=None) -> None:
         self.length = length if length != None else len(data)
-        self.n_codebooks = len(data[0])
+        self.n_codebooks = n_codebooks if n_codebooks != None else len(data[0])
         self.data_bit_depth = data_bit_depth
         self.data = data
+
+        self.file_length = math.ceil(self.length * self.n_codebooks * self.data_bit_depth / 8) + 11
         # TODO add exceptions for when data is of wrong length / wrong codebook count
     
 
     def write(self, filepath):
-        writer = FileWriter(filepath)
+        writer = FileWriter(filepath, self.file_length)
 
         writer.write_32_bit(File.MAGIC_NUM)
 
@@ -97,9 +101,9 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
 
 
 class FileWriter():
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, byte_num=0) -> None:
         self.file = open(path, mode="wb")
-        self.bytes = []
+        self.bytes = [0] * byte_num
         self.front_pointer = -1
 
     def write_bit(self, bit):
@@ -122,9 +126,37 @@ class FileWriter():
         self.write_short(integer >> 16)
         self.write_short(integer & 0xFFFF)
 
-    def write_n_bits(self, to_write, n_bits):
-        for i in range(n_bits):
-            self.write_bit(to_write >> (n_bits - 1 - i))
+    def write_n_bits(self, to_write, n_bits):  # this looks like a pain, and can probably be further improved in the future, but can't deny 2x speed improvement
+        # print(self.front_pointer, n_bits)
+        f_in_byte = (self.front_pointer + 1) % 8
+
+        if f_in_byte == 0 and n_bits >= 8:
+            self.bytes[(self.front_pointer+1) // 8] = to_write >> (n_bits - 8)
+
+        fit = 8 - f_in_byte
+        space_after = max(fit - n_bits, 0)  # how much space do we have after
+        space_before = f_in_byte + max(n_bits - fit, 0)
+
+        m1 = (1 << fit) - 1  # eliminate before
+        m2 = ~((1 << space_after) - 1)  # eliminate after
+
+        mask = m1 & m2
+        result = ((to_write << space_after) >> space_before) & mask
+
+        # if len(self.bytes) <= ((self.front_pointer+1) // 8):  # we need to be careful here incase someone has messed with self.front_pointer, and it hasn't necesarily incremented how we'd expect
+        #     self.bytes.append(0)
+        
+        self.bytes[(self.front_pointer+1) // 8] |= result
+
+        self.front_pointer += min(fit, n_bits)
+
+        remaining = n_bits - fit
+        if remaining > 0:
+            self.write_n_bits(to_write, remaining)
+
+
+        # for i in range(n_bits):
+        #     self.write_bit(to_write >> (n_bits - 1 - i))
 
     def close(self):
         self.file.write(bytes(byte & 0xFF for byte in self.bytes))
@@ -134,8 +166,25 @@ class FileWriter():
         
 # just some testing stuff
 if __name__ == "__main__": 
-    f = File(data=[[10, 10, 10, 10, 10]], data_bit_depth=5)
+    s = timeit.default_timer()
+    f = File(data=[[10, 10, 10, 10, 10] for i in range(50000)], data_bit_depth=10)
     f.write("test.test")
+    x = timeit.default_timer()
+    # print("Writing", x-s)
+    # exit()
 
-    x = File.read("test.test")
-    print(x.data)
+    f = File.read("test.test")
+    print(len(f.data))
+    print(f.data[:10])
+    y = timeit.default_timer()
+    print("Writing", x-s)
+    print("reading", y-x)
+
+    # writer = FileWriter("test.test")
+    # for i in range(100):
+    #     writer.write_n_bits(10, 10)
+    # writer.close()
+
+    # reader = FileReader("test.test")
+    # for i in range(10):
+    #     print(reader.read_n_bits(10))
