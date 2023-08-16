@@ -9,6 +9,7 @@ import torch
 import gzip
 import hashlib
 import json
+import itertools, functools
 import io
 LEAKY_RELU = 0.2
 INIT_MEAN = 0.0
@@ -82,6 +83,11 @@ class Models(nn.Module):
         }
         
         torch.save(result, f"logs-t/{folder_name}/models.saved")
+
+    
+    @property
+    def ctx_len(self):
+        return functools.reduce(lambda x, y : x*y, self.upstrides)
 
     
     def load(folder_name="logs-t"):

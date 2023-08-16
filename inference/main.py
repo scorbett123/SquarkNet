@@ -91,8 +91,11 @@ class ModelStatsWidget(QWidget):
 
     def update(self, models: models.Models):
         self.epochs.setText(f"Epochs: {models.epochs}")
-        self.ncodes.setText(f"Codes: {models.ncodes}")
+        self.ncodes.setText(f"Codebooks: {models.ncodes}")
         self.nbooks.setText(f"Books: {models.nbooks}")
+
+        bitrate = 16000 / models.ctx_len * models.nbooks * math.log2(models.ncodes) / 1000
+        self.bitrate.setText(f"Bitrate: {bitrate:.2f} kbps")
 
         # bitrate = math.ceil(math.log2(models.ncodes) * models.nbooks)
         # self.bitrate.setText(f"Bitrate: {round(bitrate / 1000, 1)} kbps")
