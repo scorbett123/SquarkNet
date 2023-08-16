@@ -26,6 +26,7 @@ class File:
             for _ in range(n_codebooks):
                 sample.append(reader.read_n_bits(n_bits=data_bit_depth))
             data.append(sample)
+        reader.close()
         return File(data, data_bit_depth=data_bit_depth, length=length, n_codebooks=n_codebooks)
         
     def __init__(self, data: Iterator[Iterator[int]], data_bit_depth: int, length=None, n_codebooks=None) -> None:
@@ -83,7 +84,7 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
         return self.read_n_bits(8)
 
     def read_n_bits(self, n_bits):
-        if (self.front_pointer + n_bits) // 8 == len(self.bytes):
+        if (self.front_pointer + n_bits - 1) // 8 == len(self.bytes):
             raise EOFError
         f_in_byte = (self.front_pointer) % 8
 
@@ -205,11 +206,15 @@ if __name__ == "__main__":
     # exit()
 
     f = File.read("test.test")
-    print(len(f.data))
-    print(f.data[:10])
     y = timeit.default_timer()
     print("Writing", x-s)
     print("reading", y-x)
+
+    
+    print(len(f.data))
+    for i in f.data:
+        for j in i:
+            assert j == 10
 
     # writer = FileWriter("test.test")
     # for i in range(100):
