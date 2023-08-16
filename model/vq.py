@@ -36,8 +36,8 @@ class VQ(nn.Module):
 
     def forward(self, x):
         self.cache = x.reshape(-1, self.codeword_size).detach()
-        dist = torch.sum(x**2, dim=2, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t()) # x^2 + y^2 - 2xy
-        vals, indexes = torch.min(dist, dim=2) # this isn't differentiable, so need to add in loss later (passthrough loss)
+        dist = torch.sum(x**2, dim=-1, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t()) # x^2 + y^2 - 2xy
+        vals, indexes = torch.min(dist, dim=-1) # this isn't differentiable, so need to add in loss later (passthrough loss)
         
 
         #  Two lines below are just normal style embedding
@@ -119,8 +119,8 @@ class RVQ(torch.nn.Module):
             residual = residual - q_values  # inplace operators mess with pytorch, so we can't use them
             y_hat = y_hat + q_values  # see above
             loss = loss+l  # see above
-            q_i = q_i.unsqueeze(2)
-            indices = q_i if indices == None else torch.cat((indices, q_i), dim=2)
+            q_i = q_i.unsqueeze(-1)
+            indices = q_i if indices == None else torch.cat((indices, q_i), dim=-1)
 
         loss = loss / len(self.quantizers)
         

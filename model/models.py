@@ -38,22 +38,22 @@ class Models(nn.Module):
         """ return in the form y, q_loss """
         encoded  = self.encoder(x)
 
-        encoded = torch.transpose(encoded, 1, 2)
+        encoded = torch.transpose(encoded, -1, -2)
         after_q, _, q_loss  = self.quantizer(encoded)
-        after_q = torch.transpose(after_q, 1, 2)
+        after_q = torch.transpose(after_q, -1, -2)
         y = self.decoder(after_q)
         return y, q_loss
     
     def encode(self, x):
         encoded  = self.encoder(x)
 
-        encoded = torch.transpose(encoded, 1, 2)
+        encoded = torch.transpose(encoded, -1, -2)
         output = self.quantizer.encode(encoded)
         return output
 
     def decode(self, x):
         after_q = self.quantizer.decode(x)
-        after_q = torch.transpose(after_q, 1, 2)
+        after_q = torch.transpose(after_q, -1, -2)
         y = self.decoder(after_q)
         return y
     
