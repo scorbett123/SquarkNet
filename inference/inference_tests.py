@@ -30,7 +30,18 @@ class InferenceTests(unittest.TestCase):
         output = "test/tmp.wav"
 
         out = inference.sc_to_wav(input, output, model)
-        self.assertTrue(out)
+        self.assertIsInstance(out, torch.Tensor)
+
+    def test_decodeshortlong(self):
+        model = models.Models.load("logs-t/epoch46/models.saved")
+        output = "samples/epoch0/0-clean.wav"
+        input = "test/a.sc"
+
+        long = inference.sc_to_wav(input, output, model)
+        short = inference.sc_to_wav_short(input, output, model)
+        
+        l1_diff = torch.nn.functional.l1_loss(long, short)
+        self.assertAlmostEqual(l1_diff.item(), 0)
 
     def test_paddingsplit(self):
         d = [1,2,3,4,5,6,7,8,9,10]

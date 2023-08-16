@@ -205,7 +205,7 @@ class EncodeWidget(EncodeDecodeWidget):
     def run(self):
         self.progress = ProgressBar(inference.wav_to_sc,(self.input_select.filename, self.output_select.filename, self.model), self.main_window)
         self.progress.show()
-        print("opened")
+        # progress has can't be a local variable as otherwise gc becomes greedy and "eats" it before it's been displayed
 
 
 class DecodeWidget(EncodeDecodeWidget):
@@ -213,8 +213,8 @@ class DecodeWidget(EncodeDecodeWidget):
         super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav)", ".wav", main_window)
 
     def run(self):
-        progress = ProgressBar(inference.sc_to_wav, (self.input_select.filename, self.output_select.filename, self.model), self.main_window)
-        progress.show()
+        self.progress = ProgressBar(inference.sc_to_wav, (self.input_select.filename, self.output_select.filename, self.model), self.main_window)
+        self.progress.show()
 
 
 class EncodeDecodeContainer(QFrame):

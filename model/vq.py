@@ -134,7 +134,7 @@ class RVQ(torch.nn.Module):
     def decode(self, indices):
         result = 0.0
         for i, q in enumerate(self.quantizers):
-            result += q.decode(indices[:, :, i])
+            result += q.decode(indices[..., i])
         return result
     
     def initialise(self, x):
