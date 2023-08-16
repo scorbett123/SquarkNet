@@ -84,7 +84,7 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
 
     def read_n_bits(self, n_bits):
         if (self.front_pointer + n_bits) // 8 == len(self.bytes):
-            return EOFError
+            raise EOFError
         f_in_byte = (self.front_pointer) % 8
 
         if f_in_byte == 0 and n_bits >= 8:  # this doesn't always help, but can sometimes bring around great benefits
