@@ -1,32 +1,70 @@
 import typing
+from PyQt6.QtCore import QObject
 from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGridLayout, QHBoxLayout, QLabel, QFileDialog, QVBoxLayout, QFrame, QSlider, QProgressBar
 from PyQt6 import QtCore, QtWidgets
 import sys
 from model import models
 import inference
 import math
+import time
 from typing import Callable
 from threading import Thread
+
+class Worker(QtCore.QObject):
+    finished = QtCore.pyqtSignal()
+    progress = QtCore.pyqtSignal(float)
+    def __init__(self, callable, *args, **kwargs) -> None:
+        super().__init__()
+        self.callable = callable
+        self.args = args
+        self.kwargs = kwargs
+
+
+    def run(self):
+        self.kwargs["progress_callback"] = self.progress.emit
+
+        self.callable(*self.args, **self.kwargs)
+        self.finished.emit()
 
 
 class ProgressBar(QWidget):
 
-    def __init__(self, callable, params) -> None:
+    def __init__(self, callable, args, main_window) -> None:
         super().__init__()
+        self.main_window = main_window
         self.pbar = QProgressBar()
         layout = QVBoxLayout()
 
         layout.addWidget(self.pbar)
         self.setLayout(layout)
 
-        self.main_thread = Thread(target=callable, args=(*params, self.update))
-        self.main_thread.start()
+        self._thread = QtCore.QThread()
+        self.worker = Worker(callable, *args)
+
+        self.worker.moveToThread(self._thread)
+
+        self._thread.started.connect(self.worker.run)
+        self.worker.progress.connect(self.update)
+        self.worker.finished.connect(self.finished)
+
+        #  house keeping
+        self.worker.finished.connect(self._thread.quit)
+        self.worker.finished.connect(self.worker.deleteLater)
+        self._thread.finished.connect(self._thread.deleteLater)
+
+        self._thread.start()
+        self.show()
+
+        
+        self.main_window.setDisabled(True)
 
 
     def update(self, amount):
         self.pbar.setValue(int(100 * amount))
 
-        
+    def finished(self):
+        self.main_window.setDisabled(False)
+        self.close()
 
 
 
@@ -125,8 +163,9 @@ class ModelStatsWidget(QWidget):
 
 
 class EncodeDecodeWidget(QWidget):
-    def __init__(self, name, input_filter, output_filter, output_type):
+    def __init__(self, name, input_filter, output_filter, output_type, main_window):
         super().__init__()
+        self.main_window = main_window
         layout = QVBoxLayout()
         layout.addWidget(QLabel(name))
         self.input_select = FileSelectionWidget("Input", input_filter)
@@ -160,32 +199,34 @@ class EncodeDecodeWidget(QWidget):
 
 
 class EncodeWidget(EncodeDecodeWidget):
-    def __init__(self):
-        super().__init__("Encode", "Audio files (*.wav)", "Audio files (*.sc)", output_type=".sc")
+    def __init__(self, main_window):
+        super().__init__("Encode", "Audio files (*.wav)", "Audio files (*.sc)", ".sc", main_window)
 
     def run(self):
-        progress = ProgressBar(inference.wav_to_sc,(self.input_select.filename, self.output_select.filename, self.model))
-        progress.show()
+        self.progress = ProgressBar(inference.wav_to_sc,(self.input_select.filename, self.output_select.filename, self.model), self.main_window)
+        self.progress.show()
+        print("opened")
+
 
 class DecodeWidget(EncodeDecodeWidget):
-    def __init__(self):
-        super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav)", output_type=".wav")
+    def __init__(self, main_window):
+        super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav)", ".wav", main_window)
 
     def run(self):
-        progress = ProgressBar(inference.sc_to_wav, (self.input_select.filename, self.output_select.filename, self.model))
+        progress = ProgressBar(inference.sc_to_wav, (self.input_select.filename, self.output_select.filename, self.model), self.main_window)
         progress.show()
 
 
 class EncodeDecodeContainer(QFrame):
-    def __init__(self):
+    def __init__(self, main_window):
         super().__init__()
         
         self.switch = QPushButton("Mode")
         self.switch.setCheckable(True)
         self.switch.clicked.connect(self.switch_ec)
 
-        self.encode = EncodeWidget()
-        self.decode = DecodeWidget()
+        self.encode = EncodeWidget(main_window)
+        self.decode = DecodeWidget(main_window)
 
         layout = QVBoxLayout()
         layout.addWidget(self.switch)
@@ -195,6 +236,7 @@ class EncodeDecodeContainer(QFrame):
         self.decode.setVisible(False)
 
         self.setLayout(layout)
+
 
     
     def switch_ec(self, value):
@@ -214,7 +256,7 @@ class MainWindow(QMainWindow):
         self.setWindowTitle("My App")
         self.model_select = ModelSelectionWidget()
         self.model_stats = ModelStatsWidget()
-        self.encode_decode = EncodeDecodeContainer()
+        self.encode_decode = EncodeDecodeContainer(main_window=self)
         
         layout = QGridLayout()
         layout.addWidget(self.model_select, 0, 0, 2, 2)
@@ -233,7 +275,6 @@ class MainWindow(QMainWindow):
 
     def on_model_select(self, model):
         self.model = model
-
 
 
 app = QApplication(sys.argv)
