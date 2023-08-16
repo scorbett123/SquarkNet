@@ -1,4 +1,5 @@
 import torch
+import torch._dynamo as dynamo
 from model import datasets
 import models
 from torch.utils.data import DataLoader
@@ -20,7 +21,7 @@ def main():
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
     # m = models.Models(192, 4, 1024, device=device)
-    m = models.Models.load("logs-t/epoch6").to(device)
+    m = models.Models.load("logs-t/epoch23").to(device)
     trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device)
     while True:
         trainer.run_epoch()

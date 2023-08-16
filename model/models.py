@@ -16,17 +16,18 @@ INIT_STD = 0.01
 
 
 class Models(nn.Module):
-    def __init__(self, n_channels, nbooks, ncodes, epochs=0, sftf_scales=[1024, 512, 256], device="cpu", discrim=True) -> None:  # improve type hints here, probably make a separate quantizer class
+    def __init__(self, n_channels, nbooks, ncodes, epochs=0, sftf_scales=[1024, 512, 256], upstrides=[2,4,6,8], device="cpu", discrim=True) -> None:  # improve type hints here, probably make a separate quantizer class
         super().__init__()
         self.n_channels = n_channels
         self.nbooks = nbooks
         self.ncodes = ncodes
         self.stft_scales = sftf_scales
         self.epochs = epochs
+        self.upstrides = upstrides
 
-        self.encoder = Encoder(n_channels).to(device)
+        self.encoder = Encoder(n_channels, upstrides=upstrides).to(device)
         self.quantizer = vq.RVQ(nbooks, ncodes, n_channels).to(device)
-        self.decoder = Decoder(n_channels).to(device)
+        self.decoder = Decoder(n_channels, upstrides=upstrides).to(device)
         if discrim:
             self.discriminator = MultiScaleSTFTDiscriminator(scales=sftf_scales).to(device)
         else:
@@ -70,6 +71,7 @@ class Models(nn.Module):
             "n_channels": self.n_channels,
             "ncodes": self.ncodes,
             "nbooks": self.nbooks,
+            "upstrides": self.upstrides,
             "epochs": self.epochs
         }
 
@@ -157,7 +159,7 @@ class DecoderBlock(nn.Module): # TODO for encoder + decoder check that padding i
         return x
     
 class Encoder(nn.Module):
-    def __init__(self, endChannels, base_width=32) -> None:
+    def __init__(self, endChannels, upstrides=[2,4,6,8], base_width=32) -> None:
         super().__init__()
         self.conv = weight_norm(nn.Conv1d(1, base_width, kernel_size=7, padding=get_padding(7)))
         self.ups = nn.ModuleList()
@@ -182,22 +184,21 @@ class Encoder(nn.Module):
         
         x = F.leaky_relu(x, LEAKY_RELU)
         x = self.conv2(x)
-        x = F.tanh(x)
+        y = F.tanh(x)
         return x
     
 class Decoder(nn.Module):
-    def __init__(self, endChannels, base_width=256) -> None:
+    def __init__(self, endChannels, upstrides=[2,4,6,8], base_width=256) -> None:
         super().__init__()
         
         self.ups = nn.ModuleList()
-        upstrides = [8,6,4,2]  # WARNING all these numbers HAVE to be even, otherwise things break
-        
+        dowwnstrides = upstrides[::-1]
         self.conv = weight_norm(nn.Conv1d(endChannels, base_width, kernel_size=7, padding=get_padding(7)))
 
-        for i in range(len(upstrides)):
-            self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=upstrides[i]))
+        for i in range(len(dowwnstrides)):
+            self.ups.append(DecoderBlock(base_width//(2**(i+1)), stride=dowwnstrides[i]))
 
-        self.conv2 = weight_norm(nn.Conv1d(base_width//(2**(len(upstrides))), 1, kernel_size=7, padding=get_padding(7)))
+        self.conv2 = weight_norm(nn.Conv1d(base_width//(2**(len(dowwnstrides))), 1, kernel_size=7, padding=get_padding(7)))
         nn.init.normal_(self.conv.weight, INIT_MEAN, INIT_STD)
         nn.init.normal_(self.conv2.weight, INIT_MEAN, INIT_STD)
 
