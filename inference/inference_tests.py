@@ -1,16 +1,28 @@
 import unittest
 import inference
 from model import models
+import torch
 
 class InferenceTests(unittest.TestCase):
 
-    def test_aencode(self):
+    def test_aencode(self):  # should be run before decode incase model has changed
         model = models.Models.load("logs-t/epoch46/models.saved")
         input = "samples/epoch0/0-clean.wav"
         output = "test/a.sc"
 
         out = inference.wav_to_sc(input, output, model)
         self.assertTrue(out)
+
+    def test_encodeshortlong(self):
+        model = models.Models.load("logs-t/epoch46/models.saved")
+        input = "samples/epoch0/0-clean.wav"
+        output = "test/a.sc"
+
+        long = inference.wav_to_sc(input, output, model)
+        short = inference.wav_to_sc_short(input, output, model)
+        
+        same = torch.eq(long.data, short.data)
+        self.assertTrue(torch.all(same), "All equal")
 
     def test_decode(self):
         model = models.Models.load("logs-t/epoch46/models.saved")
@@ -19,6 +31,15 @@ class InferenceTests(unittest.TestCase):
 
         out = inference.sc_to_wav(input, output, model)
         self.assertTrue(out)
+
+    def test_paddingsplit(self):
+        d = [1,2,3,4,5,6,7,8,9,10]
+        a = inference.split_with_padding(d, 1, 1)
+
+        result = [[1, 2], [2, 3, 4], [4, 5, 6], [6, 7, 8], [8, 9, 10]]
+
+        self.assertEqual(list(a), result)
+
 
         
 
