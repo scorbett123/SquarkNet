@@ -8,7 +8,7 @@ Improved write
 Writing 0.36174377799943613
 reading 0.9077010550008708
 
-full byte skip on write
+full byte skip on write (looks marginal, except when bit depth is a multiple of 8, then bit difference_
 Writing 0.2926645600091433
 reading 1.0578037069935817
 
