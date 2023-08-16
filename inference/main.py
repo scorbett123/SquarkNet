@@ -46,11 +46,12 @@ class FileSelectionWidget(QFrame):
         if self.open:
             fname = QFileDialog.getOpenFileName(self, 'Open file', 
             '', self.filter)[0]
-            if not fname.endswith(self.force_ends):
-                fname += self.force_ends
         else:
             fname = QFileDialog.getSaveFileName(self, 'Save file', 
             '', self.filter)[0]
+        
+        if (not fname.endswith(self.force_ends)) and fname != "":
+            fname += self.force_ends
         self.filename = fname
         self._file_name.setText(fname if fname else "No file selected")
         self.file_chosen.emit(fname)
@@ -62,7 +63,7 @@ class ModelSelectionWidget(QWidget):
         super().__init__()
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Model Selection"))
-        self.file_select = FileSelectionWidget("Model File", "Model files ()")
+        self.file_select = FileSelectionWidget("Model File", "Model files ()", force_ends=".saved")
         self.file_select.file_chosen.connect(self.model_update)
 
         layout.addWidget(self.file_select)
@@ -104,6 +105,10 @@ class EncodeDecodeWidget(QWidget):
         layout.addWidget(QLabel(name))
         self.input_select = FileSelectionWidget("Input", input_filter)
         self.output_select = FileSelectionWidget("Output", output_filter, open=False, force_ends=output_type)
+
+        self.input_select.file_chosen.connect(self.update_button)
+        self.output_select.file_chosen.connect(self.update_button)
+
         self.run_button = QPushButton("Run")
         self.run_button.setDisabled(True)
         self.run_button.clicked.connect(self.run)
@@ -116,8 +121,13 @@ class EncodeDecodeWidget(QWidget):
 
     def model_set(self, model):
         self.model = model
-        if model != None:
+        self.update_button()
+
+    def update_button(self):
+        if self.model != None and self.input_select.filename != "" and self.output_select.filename != "":
             self.run_button.setDisabled(False)
+        else:
+            self.run_button.setDisabled(True)
 
     def run(self):
         pass
