@@ -83,9 +83,35 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
         return self.read_n_bits(8)
 
     def read_n_bits(self, n_bits):
-        bits = [self.read_bit() << (n_bits - 1 -i) for i in range(n_bits)] # create a list of bits shifted by their result position
-        return functools.reduce(ior, bits) # bitwise or all of the bits to get the result
-        
+        if (self.front_pointer + n_bits) // 8 == len(self.bytes):
+            return EOFError
+        f_in_byte = (self.front_pointer) % 8
+
+        if f_in_byte == 0 and n_bits >= 8:  # this doesn't always help, but can sometimes bring around great benefits
+            val = self.bytes[self.front_pointer // 8]
+            self.front_pointer += 8
+            if n_bits > 8:
+                return val << (n_bits - 8) | self.read_n_bits(n_bits-8)
+            else:
+                return val << (n_bits - 8)
+
+        fit = 8-f_in_byte
+
+        space_after = max(fit-n_bits, 0)
+        space_before = f_in_byte + max(n_bits - fit, 0)
+
+        m1 = (1 << fit) - 1  # eliminate before
+        m2 = ~((1 << space_after) - 1)  # eliminate after
+        mask = m1 & m2
+
+        val = ((self.bytes[self.front_pointer // 8] & mask) >> space_after) << (space_before)
+        self.front_pointer += min(fit, n_bits)
+        remaining = n_bits - fit
+        if remaining > 0:
+            return val + self.read_n_bits(remaining)
+        else:
+            return val
+
     def read_short(self):
         b1 = self.read_byte()
         b2 = self.read_byte()
@@ -130,8 +156,13 @@ class FileWriter():
         # print(self.front_pointer, n_bits)
         f_in_byte = (self.front_pointer + 1) % 8
 
-        if f_in_byte == 0 and n_bits >= 8:
+        if f_in_byte == 0 and n_bits >= 8:  # the benefit of this changes dependant on bitdpeth, ranging from 3x improvement, to none
             self.bytes[(self.front_pointer+1) // 8] = to_write >> (n_bits - 8)
+            self.front_pointer += 8
+
+            if n_bits > 8:
+                self.write_n_bits(to_write, n_bits-8)
+            return
 
         fit = 8 - f_in_byte
         space_after = max(fit - n_bits, 0)  # how much space do we have after
@@ -167,7 +198,7 @@ class FileWriter():
 # just some testing stuff
 if __name__ == "__main__": 
     s = timeit.default_timer()
-    f = File(data=[[10, 10, 10, 10, 10] for i in range(50000)], data_bit_depth=10)
+    f = File(data=[[10, 10, 10, 10, 10] for i in range(50000)], data_bit_depth=8)
     f.write("test.test")
     x = timeit.default_timer()
     # print("Writing", x-s)

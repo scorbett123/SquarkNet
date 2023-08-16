@@ -1,0 +1,21 @@
+https://github.com/RoboConOxfordshire/robot/tree/Ultrasonic_dev_work
+
+Original
+Writing 0.8562287849999848
+reading 0.9567937659994641
+
+Improved write
+Writing 0.36174377799943613
+reading 0.9077010550008708
+
+full byte skip on write
+Writing 0.2926645600091433
+reading 1.0578037069935817
+
+Improved reading
+Writing 0.33437424298608676
+reading 0.402166515996214
+
+full byte skip on read
+Writing 0.3566672640154138
+reading 0.3727041959937196
