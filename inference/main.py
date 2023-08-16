@@ -1,10 +1,33 @@
 import typing
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGridLayout, QHBoxLayout, QLabel, QFileDialog, QVBoxLayout, QFrame, QSlider
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGridLayout, QHBoxLayout, QLabel, QFileDialog, QVBoxLayout, QFrame, QSlider, QProgressBar
 from PyQt6 import QtCore, QtWidgets
 import sys
 from model import models
 import inference
 import math
+from typing import Callable
+from threading import Thread
+
+
+class ProgressBar(QWidget):
+
+    def __init__(self, callable, params) -> None:
+        super().__init__()
+        self.pbar = QProgressBar()
+        layout = QVBoxLayout()
+
+        layout.addWidget(self.pbar)
+        self.setLayout(layout)
+
+        self.main_thread = Thread(target=callable, args=(*params, self.update))
+        self.main_thread.start()
+
+
+    def update(self, amount):
+        self.pbar.setValue(int(100 * amount))
+
+        
+
 
 
 class FileSelectionWidget(QFrame):
@@ -141,14 +164,16 @@ class EncodeWidget(EncodeDecodeWidget):
         super().__init__("Encode", "Audio files (*.wav)", "Audio files (*.sc)", output_type=".sc")
 
     def run(self):
-        inference.wav_to_sc(self.input_select.filename, self.output_select.filename, self.model)
+        progress = ProgressBar(inference.wav_to_sc,(self.input_select.filename, self.output_select.filename, self.model))
+        progress.show()
 
 class DecodeWidget(EncodeDecodeWidget):
     def __init__(self):
         super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav)", output_type=".wav")
 
     def run(self):
-        inference.sc_to_wav(self.input_select.filename, self.output_select.filename, self.model)
+        progress = ProgressBar(inference.sc_to_wav, (self.input_select.filename, self.output_select.filename, self.model))
+        progress.show()
 
 
 class EncodeDecodeContainer(QFrame):
