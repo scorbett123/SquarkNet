@@ -33,6 +33,9 @@ class Loss(torch.nn.Module):
     def get_raw_value(self, *args) -> torch.Tensor:
         raise NotImplemented
     
+    def plot(self, writer, steps):
+        writer.add_scalar(f"train_loss/{self.name}", self.prev_raw, steps)
+    
     
 
 class ReconstructionLossFreq(Loss):
@@ -62,13 +65,16 @@ class ReconstructionLossTime(Loss):  # From what I can tell the ONLY purpose of 
 class ReconstructionLoss(Loss):
     def __init__(self, time_weight, freq_weight, beta=1) -> None:
         super().__init__("Reconstruction Loss", 1, normalize=False)
-        self.time_factor = ReconstructionLossTime(1)
-        self.freq_factor = ReconstructionLossFreq(1)
+        self.time_factor = ReconstructionLossTime(time_weight)
+        self.freq_factor = ReconstructionLossFreq(freq_weight)
 
     def get_raw_value(self, x, y):
         #return self.loss_for_spec(x, y, self.spec) / (750 * 4 * 4)
         return self.time_factor(x, y) + self.freq_factor(x, y)
 
+    def plot(self, writer, steps):
+        self.time_factor.plot(writer, steps)
+        self.freq_factor.plot(writer, steps)
 
 class SetLoss(Loss):
     def get_raw_value(self, raw_value):
