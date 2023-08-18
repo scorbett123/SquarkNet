@@ -88,6 +88,16 @@ class Models(nn.Module):
     @property
     def ctx_len(self):
         return functools.reduce(lambda x, y : x*y, self.upstrides)
+    
+    @property
+    def hash(self):
+        """ Really slow, shouldn't be used frequently """
+        buffer = io.BytesIO()
+        torch.save(self.state_dict(), buffer)
+        buffer.seek(0)
+        model_files = buffer.read()
+        model_hash = hashlib.md5(model_files).digest()
+        return model_hash
 
     
     def load(folder_name="logs-t"):
