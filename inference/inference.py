@@ -30,6 +30,9 @@ def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callab
 
         f = file_structure.File.read(path)
 
+        if f.model_hash != model.hash:
+            raise Exception("Invalid Hash")
+
         indices = torch.tensor(f.data)
 
         result_wav = None
@@ -81,7 +84,7 @@ def wav_to_sc(path, output_path, model: models.Models, progress_callback: Callab
             if progress_callback != None:
                 progress_callback(i / segment_count)
 
-        f = file_structure.File(codebooks, data_bit_depth=math.ceil(math.log2(model.ncodes)), n_codebooks=model.nbooks)
+        f = file_structure.File(codebooks, model_hash=model.hash, data_bit_depth=math.ceil(math.log2(model.ncodes)), n_codebooks=model.nbooks)
         f.write(output_path)
         if progress_callback != None:
             progress_callback(1)
@@ -106,7 +109,7 @@ def wav_to_sc_short(path, output_path, model: models.Models):
         audio_data = sound.unsqueeze(0)
         codebooks = model.encode(audio_data)
 
-        f = file_structure.File(codebooks.squeeze(0), data_bit_depth=math.ceil(math.log2(model.ncodes)), n_codebooks=model.nbooks)
+        f = file_structure.File(codebooks.squeeze(0), model_hash=model.hash, data_bit_depth=math.ceil(math.log2(model.ncodes)), n_codebooks=model.nbooks)
         f.write(output_path)
         return f
     except Exception:  # absolutely any exception in here and we just return failed

@@ -97,7 +97,8 @@ class Models(nn.Module):
         buffer.seek(0)
         model_files = buffer.read()
         model_hash = hashlib.md5(model_files).digest()
-        return model_hash
+        hash_as_int = int.from_bytes(model_hash, byteorder="big",signed=False)
+        return hash_as_int
 
     
     def load(folder_name="logs-t"):

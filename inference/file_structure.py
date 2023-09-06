@@ -18,6 +18,8 @@ class File:
         n_codebooks = reader.read_byte()
         data_bit_depth = reader.read_byte()
 
+        model_hash = reader.read_n_bits(128)
+
         reader.read_byte()  # padding
 
         data = []
@@ -27,13 +29,14 @@ class File:
                 sample.append(reader.read_n_bits(n_bits=data_bit_depth))
             data.append(sample)
         reader.close()
-        return File(data, data_bit_depth=data_bit_depth, length=length, n_codebooks=n_codebooks)
+        return File(data, model_hash=model_hash, data_bit_depth=data_bit_depth, length=length, n_codebooks=n_codebooks)
         
-    def __init__(self, data: Iterator[Iterator[int]], data_bit_depth: int, length=None, n_codebooks=None) -> None:
+    def __init__(self, data: Iterator[Iterator[int]], data_bit_depth: int, model_hash: str, length=None, n_codebooks=None) -> None:
         self.length = length if length != None else len(data)
         self.n_codebooks = n_codebooks if n_codebooks != None else len(data[0])
         self.data_bit_depth = data_bit_depth
         self.data = data
+        self.model_hash = model_hash
 
         # TODO add exceptions for when data is of wrong length / wrong codebook count
     
@@ -46,6 +49,7 @@ class File:
         writer.write_32_bit(self.length)
         writer.write_byte(self.n_codebooks)
         writer.write_byte(self.data_bit_depth)
+        writer.write_n_bits(self.model_hash, 128)
 
         writer.write_byte(0) # write a padding byte, not really needed, but makes analysis easier
 
