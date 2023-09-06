@@ -9,7 +9,7 @@ import os
 
 
 class Trainer:
-    def __init__(self, models: Models, train_loader, valid_loader, loss_gen, device="cpu", learning_rate=0.0002, betas=[0.5, 0.9], discrim_learning_rate=0.0002, gamma=0.98) -> None:
+    def __init__(self, models: Models, train_loader: DataLoader, valid_loader: DataLoader, loss_gen, device="cpu", learning_rate=0.0002, betas=[0.5, 0.9], discrim_learning_rate=0.0002, gamma=0.98) -> None:
         self.models = models
         self.learning_rate = learning_rate
         self.discrim_learning_rate = discrim_learning_rate
@@ -61,7 +61,7 @@ class Trainer:
                 with torch.no_grad():
                     self.models.quantizer.deal_with_dead()
 
-            if self.steps % 25 == 0:
+            if self.steps % 10 == 0:
                 self.loss_gen.plot(self.writer, self.steps)
             if self.steps % 250 == 0:
                 self.gen_samples(f"epoch{self.models.epochs}")

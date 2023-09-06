@@ -101,7 +101,7 @@ class Models(nn.Module):
 
     
     def load(folder_name="logs-t"):
-        if not folder_name.endswith("models.saved"):
+        if not folder_name.endswith(".saved"):
             folder_name += "/models.saved"
         m = torch.load(folder_name)
 
