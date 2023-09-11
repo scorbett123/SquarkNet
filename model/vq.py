@@ -49,7 +49,8 @@ class VQ(nn.Module):
 
         values = x + (values -x).detach()
 
-        self.usages = self.usages + torch.sum(one_hot.reshape(-1, self.codebook_size), dim=-2)
+        if self.training:
+            self.usages = self.usages + torch.sum(one_hot.reshape(-1, self.codebook_size), dim=-2)
         # print(torch.sum(one_hot.view(-1, self.codebook_size), dim=-2).nonzero().shape)
         # print(self.usages.nonzero())
         

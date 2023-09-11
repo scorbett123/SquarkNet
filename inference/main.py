@@ -1,6 +1,6 @@
 import typing
 from PyQt6.QtCore import QObject
-from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGridLayout, QHBoxLayout, QLabel, QFileDialog, QVBoxLayout, QFrame, QSlider, QProgressBar
+from PyQt6.QtWidgets import QApplication, QWidget, QPushButton, QMainWindow, QGridLayout, QHBoxLayout, QLabel, QFileDialog, QVBoxLayout, QFrame, QSlider, QProgressBar, QMessageBox
 from PyQt6 import QtCore, QtWidgets
 import sys
 from model import models
@@ -9,9 +9,11 @@ import math
 import time
 from typing import Callable
 from threading import Thread
+import traceback
 
 class Worker(QtCore.QObject):
     finished = QtCore.pyqtSignal()
+    error = QtCore.pyqtSignal(Exception)
     progress = QtCore.pyqtSignal(float)
     def __init__(self, callable, *args, **kwargs) -> None:
         super().__init__()
@@ -22,8 +24,11 @@ class Worker(QtCore.QObject):
 
     def run(self):
         self.kwargs["progress_callback"] = self.progress.emit
-
-        self.callable(*self.args, **self.kwargs)
+        try:
+            self.callable(*self.args, **self.kwargs)
+        except Exception as e:
+            traceback.print_exception(e)
+            self.error.emit(e)
         self.finished.emit()
 
 
@@ -46,6 +51,7 @@ class ProgressBar(QWidget):
         self._thread.started.connect(self.worker.run)
         self.worker.progress.connect(self.update)
         self.worker.finished.connect(self.finished)
+        self.worker.error.connect(self.exception)
 
         #  house keeping
         self.worker.finished.connect(self._thread.quit)
@@ -65,6 +71,22 @@ class ProgressBar(QWidget):
     def finished(self):
         self.main_window.setDisabled(False)
         self.close()
+
+    def exception(self, e):
+        if e is inference.InvalidHashException:
+            button = QMessageBox.critical(
+                None,
+                "Error",
+                "This file was encoded with a different model, please select the correct model",
+                buttons=QMessageBox.StandardButton.Ok
+            )
+        else:
+            button = QMessageBox.critical(
+                None,
+                "Error",
+                "An error has occured, try again",
+                buttons=QMessageBox.StandardButton.Ok
+            )
 
 
 
