@@ -52,8 +52,5 @@ class InferenceTests(unittest.TestCase):
         self.assertEqual(list(a), result)
 
 
-        
-
-
 if __name__ == "__main__":
     unittest.main()
