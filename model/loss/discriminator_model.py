@@ -11,7 +11,7 @@ LEAKY_RELU = 0.2
 INIT_MEAN = 0.0
 INIT_STD = 0.01
 
-def get_padding_nd(kernel_sizes, dilations):
+def get_padding_nd(kernel_sizes: list[int], dilations: list[int]) -> list[int]:
     return [math.floor((kernel_size-1) * dilation / 2) for kernel_size, dilation in zip(kernel_sizes, dilations)]
 
 
@@ -21,9 +21,9 @@ class STFTDiscriminator(torch.nn.Module):
                  scale,
                  kernel_size=(3,8)) -> None:
         super().__init__()
-        self.transform = torchaudio.transforms.Spectrogram(n_fft=(scale - 1) * 2, win_length=scale, normalized=False, power=None, center=False, pad_mode=None)
+        self._transform = torchaudio.transforms.Spectrogram(n_fft=(scale - 1) * 2, win_length=scale, normalized=False, power=None, center=False, pad_mode=None)
 
-        self.convs = nn.ModuleList([
+        self._convs = nn.ModuleList([
             weight_norm(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=kernel_size, padding=get_padding_nd((3,8), (1,1)))),
             weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(1,1), padding=get_padding_nd((3,8), (1,1)))),
             weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(2,1), padding=get_padding_nd((3,8), (2,1)))),
@@ -32,17 +32,17 @@ class STFTDiscriminator(torch.nn.Module):
             weight_norm(nn.Conv2d(in_channels=32, out_channels=1, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1))))
         ])
 
-        for conv in self.convs:
+        for conv in self._convs:
             nn.init.normal_(conv.weight, INIT_MEAN, INIT_STD)
 
 
     def forward(self, x):
-        spec: torch.Tensor = self.transform(x)
+        spec: torch.Tensor = self._transform(x)
         spec = torch.cat([spec.real, spec.imag], dim=-1)
         spec = spec.transpose(-1, -2)
         internal_activations = []  # will be in form L B X Y
 
-        for conv in self.convs:
+        for conv in self._convs:
             spec = conv(spec)
             spec = torch.nn.functional.leaky_relu(spec, LEAKY_RELU)
             internal_activations.append(spec)
@@ -54,15 +54,15 @@ class STFTDiscriminator(torch.nn.Module):
 class MultiScaleSTFTDiscriminator(torch.nn.Module):
     def __init__(self, scales = [2048, 1024, 512, 256, 128]) -> None:
         super().__init__()
-        self.discrims = torch.nn.ModuleList([STFTDiscriminator(scale) for scale in scales])
+        self._discrims = torch.nn.ModuleList([STFTDiscriminator(scale) for scale in scales])
 
     def forward(self, x):
-        logit, disc_feature = self.discrims[0](x)
+        logit, disc_feature = self._discrims[0](x)
         result = logit.unsqueeze(0).transpose(0, 1)
 
         features = [disc_feature]  # need to use lists :( due to differing lengths of dimensions, too hard to exclude at the other end
 
-        for discrim in self.discrims[1:]:
+        for discrim in self._discrims[1:]:
             logit, disc_feature = discrim(x)
             result = torch.concat((logit.unsqueeze(0).transpose(0, 1), result), dim=1)
             features.append(disc_feature)
