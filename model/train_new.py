@@ -27,7 +27,6 @@ class Trainer:
         
         self.writer = SummaryWriter(log_dir="logs-t/")
 
-        torch.autograd.set_detect_anomaly(True)
         self.steps = 1 # start steps at 1 so that we don't run logging on first step
 
     def run_epoch(self):
@@ -54,7 +53,7 @@ class Trainer:
             
             self.writer.add_scalar("test/discrim", discrim_loss.item(), self.steps)
             discrim_loss.backward()
-            if self.steps %3 < 2:
+            if self.steps % 3 < 2:
                 self.discriminator_optimizer.step()
 
             if self.steps % 120 == 0:

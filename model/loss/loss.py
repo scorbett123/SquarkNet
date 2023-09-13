@@ -8,8 +8,8 @@ class LossGenerator():  # TODO more params such as weights etc.
         self.discrim_loss = DiscriminatorLoss(3).to(device)
         self.feature_loss = FeatureLoss(3).to(device)
         self.recon_loss = ReconstructionLoss(0.01, 1).to(device)
-        self.quantization_loss = SetLoss("quantization_loss", 2).to(device)
-        self.whisper_loss = WhisperLoss(context_length, batch_size, 2).to(device)
+        self.quantization_loss = SetLoss("quantization_loss", 1).to(device)
+        self.whisper_loss = WhisperLoss(context_length, batch_size,2).to(device)
 
         self.losses = [self.discrim_ad_loss, self.discrim_loss, self.feature_loss, self.recon_loss, self.quantization_loss, self.whisper_loss]
         # TODO feature loss

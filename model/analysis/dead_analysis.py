@@ -23,7 +23,7 @@ TENSORBOARD_INTERAVAL = 25
 VALID_SAVE_INTERVAL = 100
 device = "cuda" if torch.cuda.is_available() else "cpu"
 
-train_data = TrainSpeechDataset(context_length)
+train_data = LibriTTS(context_length)
 valid_loader = ValidateSpeechDataset(48)
 
 train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)

@@ -69,7 +69,7 @@ class MultiScaleSTFTDiscriminator(torch.nn.Module):
         return result, features  # D B L X Y to B D L X Y, keep batch first (convention)
 
 if __name__ == "__main__":
-    loader = DataLoader(datasets.TrainSpeechDataset(240*48), 20)
+    loader = DataLoader(datasets.LibriTTS(240*48), 20)
     random_loader = DataLoader(datasets.RandomAudioDataset(240*48, 100), 20)
     discrim = MultiScaleSTFTDiscriminator()
     optim = torch.optim.Adam(discrim.parameters(),  lr=0.002, betas=[0.5, 0.9])
