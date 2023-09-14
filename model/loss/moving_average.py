@@ -37,12 +37,12 @@ class EMA(MovingAverage):
 
     """
     def __init__(self, *args, beta, **kwargs) -> None:  # the parameters here do a bit of trolling at points, when bugs look here
-        self.beta = beta
+        self._beta = beta
         super().__init__(*args, **kwargs)
 
     def get_weights(self, context_len) -> torch.Tensor:
         weights = torch.linspace(0, context_len-1, context_len)
-        weights =  self.beta ** weights
+        weights =  self._beta ** weights
         return weights
 
 
