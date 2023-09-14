@@ -14,8 +14,8 @@ def main():
     m = models.Models(256, 8, 1024, upstrides=[2,4,6,8], device=device)
     context_length = m.ctx_len*32
 
-    train_data = datasets.LibriTTS(context_length)
-    valid_loader = datasets.ValidateSpeechDataset(m.ctx_len)
+    train_data = datasets.CommonVoice(context_length)
+    valid_loader = datasets.CommonVoice(16000 * 30, "test")
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=8)
     valid_loader = DataLoader(valid_loader, batch_size=1)  # TODO increase batch size here, just 1 for testing
@@ -23,7 +23,7 @@ def main():
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
     #m = models.Models.load("logs-t/epoch23").to(device)
-    trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device)
+    trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
     while True:
         trainer.run_epoch()
         m.epochs += 1

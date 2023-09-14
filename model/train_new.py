@@ -62,7 +62,7 @@ class Trainer:
 
             if self.steps % 10 == 0:
                 self.loss_gen.plot(self.writer, self.steps)
-            if self.steps % 250 == 0:
+            if self.steps % 200 == 0:
                 self.gen_samples(f"epoch{self.models.epochs}")
             self.steps += 1
 
