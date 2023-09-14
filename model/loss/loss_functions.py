@@ -5,46 +5,44 @@ from model.datasets import *
 from model.datasets import torch
 from model.loss import moving_average
 import torch.nn.functional as F
+from torch.utils.tensorboard import SummaryWriter
 
 class Loss(torch.nn.Module):
-    def __init__(self, name, weight, normalize=True) -> None:
+    def __init__(self, name: str, weight: float, normalize: bool=True) -> None:
         super().__init__()
         self.name = name
         self.moving_average = moving_average.EMA(1000, beta=0.99)
         self.plot_average = moving_average.SMA(25)  # should always be the same as the plot interval, need to figure out a way to make this so
-        self.prev_raw = -1
-        self.previous = []
-        self.weight = weight
-        self.normalize = normalize
+        self._weight = weight
+        self._normalize = normalize
         
-    def get_value(self, *args):
+    def get_value(self, *args) -> torch.Tensor:
         raw = self.get_raw_value(*args)
-        self.prev_raw = raw
         self.plot_average.update(raw)
         #return raw
-        if self.normalize:
-            return self.weight * (raw / (self.moving_average.update(raw.item()) * 0.999))  # TODO should be applied b4 or after
+        if self._normalize:
+            return self._weight * (raw / (self.moving_average.update(raw.item()) * 0.999))  #  Reduce it slightly cause it gives better reliability
         else:
-            return self.weight * raw
+            return self._weight * raw
     
-    def forward(self, *args):
+    def forward(self, *args) -> torch.Tensor:
         return self.get_value(*args)
 
     def get_raw_value(self, *args) -> torch.Tensor:
         raise NotImplemented
     
-    def plot(self, writer, steps):
-        writer.add_scalar(f"train_loss/{self.name}", self.prev_raw, steps)
+    def plot(self, writer: SummaryWriter, steps: int) -> None:
+        writer.add_scalar(f"train_loss/{self.name}", self.plot_average.average, steps)
     
     
 
 class ReconstructionLossFreq(Loss):
     def __init__(self, weight, beta=1) -> None:
         super().__init__("frequency loss", weight)
-        self.specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=80, n_fft=2 ** (i+1), win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(9, 10)])  #  see if the values here are reasonable, could well be way off
-        self.beta = beta
+        self._specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=80, n_fft=2 ** (i+1), win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(9, 10)])  #  see if the values here are reasonable, could well be way off
+        self._beta = beta
 
-    def loss_for_spec(self, x, y, spec):
+    def loss_for_spec(self, x, y, spec) -> torch.Tensor:
         xs, ys = spec(x), spec(y)
         return F.l1_loss(xs, ys) + self.beta * F.mse_loss(xs, ys)  # TODO soundstream seems to take a log here, could fix the problem of mse being so much higher than l1
 

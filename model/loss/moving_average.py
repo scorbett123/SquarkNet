@@ -6,21 +6,21 @@ class MovingAverage(nn.Module):
         super().__init__()
         self.register_buffer("_window", torch.fill(torch.empty(context_len, dtype=torch.float32), intial_val))
         self.average = intial_val
-        self.context_len = context_len
+        self._context_len = context_len
 
         weights = self.get_weights(context_len)
         self.register_buffer("_weights", weights)
         self._weight_sum = torch.sum(weights)
-        self.length = 0
+        self._length = 0
 
     @torch.no_grad()
-    def update(self, new_value):
-        self.length += 1
+    def update(self, new_value) -> torch.Tensor:
+        self._length += 1
         self._window = torch.roll(self._window, 1)
         self._window[0] = new_value
 
-        s = self._weight_sum if self.length >= self.context_len else torch.sum(self._weights[:self.length])
-        result = torch.sum(self._window[:self.length] * self._weights[:self.length]) / s
+        s = self._weight_sum if self._length >= self._context_len else torch.sum(self._weights[:self._length])
+        result = torch.sum(self._window[:self._length] * self._weights[:self._length]) / s
         self.average = result
         return result
     
