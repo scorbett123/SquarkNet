@@ -48,7 +48,7 @@ class ReconstructionLossFreq(Loss):
 
     def get_raw_value(self, x, y):
         total = 0.0
-        for spec in self.specs:
+        for spec in self.specs:  #  can't use list comprehension here as pytorch then plays tricks
             total = total + self.loss_for_spec(x, y, spec)
         return total / len(self.specs)
     
@@ -57,7 +57,7 @@ class ReconstructionLossTime(Loss):  # From what I can tell the ONLY purpose of 
         super().__init__("time loss", weight, **args)
 
     def get_raw_value(self, x, y):
-        return torch.nn.functional.l1_loss(x, y)
+        return F.l1_loss(x, y)
     
 
 class ReconstructionLoss(Loss):
@@ -82,13 +82,13 @@ class SetLoss(Loss):
 class WhisperMel(torch.nn.Module):
     def __init__(self) -> None:
         super().__init__()
-        self.spectrogram = torchaudio.transforms.Spectrogram(n_fft=400, hop_length=160)
-        self.register_buffer("mel_filters", torchaudio.functional.melscale_fbanks(n_freqs=201, f_max=8000, f_min=0, n_mels=80, sample_rate=16000, norm="slaney", mel_scale="slaney"))
+        self._spectrogram = torchaudio.transforms.Spectrogram(n_fft=400, hop_length=160)
+        self.register_buffer("_mel_filters", torchaudio.functional.melscale_fbanks(n_freqs=201, f_max=8000, f_min=0, n_mels=80, sample_rate=16000, norm="slaney", mel_scale="slaney"))
 
     def forward(self, x):
         # steps here taken from whisper.log_mel_spectrogram in order to maintain compatability (not have to retrain whisper), but this is much faster
-        spec = self.spectrogram(x)[..., :-1]
-        mel = (spec.transpose(-1, -2) @ self.mel_filters).transpose(-1, -2)
+        spec = self._spectrogram(x)[..., :-1]
+        mel = (spec.transpose(-1, -2) @ self._mel_filters).transpose(-1, -2)
 
         log = torch.clamp_min(mel, 1e-10).log10() # clamp to prevent divide by 0
         log = torch.maximum(log, log.max() - 8.0)
@@ -103,12 +103,11 @@ class WhisperLoss(Loss):
 
     def __init__(self, context_length, batch_size, weight, beta=1.) -> None:
         super().__init__("Whisper Loss", weight)
-        self.beta = beta
-        self.batch_size = batch_size
-        self.ctx_len = context_length
+        self._beta = beta
+        self._batch_size = batch_size
+        self._ctx_len = context_length
 
-        self.wanted_bsize, self.padding, self.target_length = self.calc_operations(context_length, batch_size)  #  TODO sort this line out
-        print(self.wanted_bsize, self.padding, self.target_length)
+        self._wanted_bsize, self._padding, self._target_length = self.calc_operations(context_length, batch_size)  #  TODO sort this line out
         
         self.whisper = whisper.load_model("tiny.en")
         self.melspec = WhisperMel()
@@ -129,10 +128,10 @@ class WhisperLoss(Loss):
         return self.whisper.encoder(x)
     
     def process_batch(self, x):
-        x = torch.nn.functional.pad(x, (0, self.padding))
+        x = torch.nn.functional.pad(x, (0, self._padding))
 
-        if x.shape[0] != self.wanted_bsize:  # make up the dimensions to 
-            t = torch.zeros(self.wanted_bsize, 1, self.target_length).to(x.device)
+        if x.shape[0] != self._wanted_bsize:  # make up the dimensions to 
+            t = torch.zeros(self._wanted_bsize, 1, self._target_length).to(x.device)
             t[:x.shape[0], ...] = x
             x = t
 
@@ -147,27 +146,27 @@ class WhisperLoss(Loss):
         xspec, yspec = self.melspec(xp), self.melspec(yp)
         xw, yw = self.get_intermediate(xspec), self.get_intermediate(yspec)
 
-        return F.l1_loss(xw, yw) + self.beta * F.mse_loss(xw, yw)
+        return F.l1_loss(xw, yw) + self._beta * F.mse_loss(xw, yw)
     
 
 class DiscriminatorLoss(Loss):
     def __init__(self, weight) -> None:
         super().__init__("Discriminator Loss", weight)
-        self.register_buffer("empty", torch.tensor([0.]))
+        self.register_buffer("_empty", torch.tensor([0.]))
 
     def get_raw_value(self, discrim_y) -> torch.Tensor:
-        values = torch.maximum(1-discrim_y, self.empty)
+        values = torch.maximum(1-discrim_y, self._empty)
         return torch.mean(values)
 
 
 class DiscriminatorAdversairialLoss(Loss):
     def __init__(self, weight) -> None:
         super().__init__("Discriminator Adversairial Loss", weight, normalize=False)
-        self.register_buffer("empty", torch.tensor([0.]))
+        self.register_buffer("_empty", torch.tensor([0.]))
 
     def get_raw_value(self, discrim_x, discrim_y) -> torch.Tensor:  # get value as we don't want to apply weight balancing
-        xs = torch.maximum(1-discrim_x, self.empty)
-        ys = torch.maximum(1+discrim_y, self.empty)
+        xs = torch.maximum(1-discrim_x, self._empty)
+        ys = torch.maximum(1+discrim_y, self._empty)
         l = torch.mean(xs) + torch.mean(ys)
         self.plot_average.update(l)  # keep updating moving average anyway for logging purposes
         return l
@@ -185,7 +184,7 @@ class FeatureLoss(Loss):
             assert len(disc_x) == len(disc_y)  # these dims should be the same, not prod code either so better to hard crash
             disc_total = 0.
             for l_x, l_y in zip(disc_x, disc_y):
-                disc_total += torch.nn.functional.l1_loss(l_x, l_y)
+                disc_total += F.l1_loss(l_x, l_y)
 
             total += disc_total / len(disc_x)     
-        return total / len(feat_x) # the above is just torch.nn.functional.l1_loss(feat_x, feat_y), but we're using lists for some stuff not tensors so have to do it manually
+        return total / len(feat_x) # the above is just F.l1_loss(feat_x, feat_y), but we're using lists for some stuff not tensors so have to do it manually
