@@ -1,169 +1,86 @@
-from model.datasets import *
 import torch
-import utils
-import matplotlib.pyplot as plt
 import itertools
-from torchaudio import transforms
-import torch.nn.functional as F
-from torch import nn
-import models
-import torch
-import vq
-from model.loss import loss_functions
+from models import *
 from torch.utils.data import DataLoader
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter(log_dir="logs/")
-
-context_length = 240*48
-batch_size = 64
-TENSORBOARD_INTERAVAL = 25
-VALID_SAVE_INTERVAL = 100
-device = "cuda" if torch.cuda.is_available() else "cpu"
-
-train_data = LibriTTS(context_length)
-valid_loader = ValidateSpeechDataset(48)
-
-train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True)
-valid_loader = DataLoader(valid_loader, batch_size=batch_size)
-
-error = nn.L1Loss()
-
-encoder = models.Encoder(256).to(device)
-quantizer = vq.RVQ(8, 1024, 256).to(device)
-decoder = models.Decoder(256).to(device)
-
-# custommel = loss_functions.CustomMel().to(device)
-spec = transforms.MelSpectrogram(16000, n_mels=80, n_fft=1024, hop_length=240, f_max=8000, f_min=0).to(device)
-# whisper = loss_functions.WhisperLoss(context_length, batch_size).to(device)
-
-# encoder.load_state_dict(torch.load("logs/encoder.state"))
-# decoder.load_state_dict(torch.load("logs/decoder.state"))
-# encoder.load_state_dict(torch.load("logs/encoder.state"))
-# decoder.load_state_dict(torch.load("logs/decoder.state"))
-# quantizer.load_state_dict(torch.load("logs/quantizer.state"))
+from tqdm import tqdm
+import torchaudio
+import os
 
 
-optimizer = torch.optim.Adam(itertools.chain(encoder.parameters(), decoder.parameters(), quantizer.parameters()), lr=0.0002, betas=[0.5, 0.9])
-scheduler = torch.optim.lr_scheduler.ExponentialLR(optimizer, gamma=0.98)
-losses = {"loss" : [], "spec1": [], "quantization": []}
+class Trainer:
+    def __init__(self, models: Models, train_loader: DataLoader, valid_loader: DataLoader, loss_gen, device="cpu", learning_rate=0.0002, betas=[0.5, 0.9], discrim_learning_rate=0.0002, gamma=0.98) -> None:
+        self.models = models
+        self.learning_rate = learning_rate
+        self.discrim_learning_rate = discrim_learning_rate
+        self.betas = betas
+        self.train_loader = train_loader
+        self.valid_loader = valid_loader
+        self.loss_gen = loss_gen
+        self.device = device
 
+        self.model_optimizer = torch.optim.Adam(itertools.chain(models.encoder.parameters(), models.decoder.parameters(), models.quantizer.parameters()), lr=learning_rate, betas=betas)
+        self.discriminator_optimizer = torch.optim.Adam(models.discriminator.parameters(),  lr=discrim_learning_rate, betas=betas)
 
-def calc_loss(predicted_in, truth, quantizer_loss, eval=False):
-    spec_1p = spec(predicted_in)
-    spec_1t = spec(truth)
-    loss_spec_1 =  F.mse_loss(spec_1p, spec_1t) / (750 * 4 * 4)
-    if not eval:
-        losses["spec1"].append(loss_spec_1.item())
-
-    # if not eval:
-    #     whisper_batched_p = whisper.process_batch(predicted_in)
-    #     whisper_batched_t = whisper.process_batch(truth)
-    # else:
-    #     whisper_batched_p = predicted_in.squeeze(1)
-    #     whisper_batched_t = truth.squeeze(1)
-    # spec_2p = custommel(whisper_batched_p)
-    # spec_2t = custommel(whisper_batched_t)
-    # loss_spec_2 = F.mse_loss(spec_2p, spec_2t) * 20
-    # if not eval:
-    #     losses["spec2"].append(loss_spec_2.item())
-
-    # whisper_p = whisper(spec_2p)
-    # whisper_t = whisper(spec_2t)
-    # loss_whisper = F.mse_loss(whisper_p, whisper_t)
-    # if not eval:
-    #     losses["whisper"].append(loss_whisper.item())
-
-    loss = loss_spec_1  + quantizer_loss# + loss_spec_2 + loss_whisper
-    if not eval:
-        losses["loss"].append(loss.item())
-    return loss
-# print(encoder)
-# print(decoder)
-# quantizer_enable_epoch = 200
-e = 0
-steps = 1
-loss = 0
-while e:=e+1:  # sligtly dodgy, however why not? I'm just messing around a bit
-    encoder.train()
-    decoder.train()
-    quantizer.train()
-    quantize_train = None
-    for truth in train_dataloader:
-        truth = truth.to(device)
-        outputs = encoder(truth)
-        quantizer_loss = 0
-        # if e > quantizer_enable_epoch:
-        #     outputs, quantizer_loss = quantizer(outputs)
-        # elif e == quantizer_enable_epoch:
-        #     if quantize_train != None:
-        #         quantize_train = torch.cat((quantize_train, outputs.detach()), dim=0)
-        #     else:
-        #         quantize_train = torch.clone(outputs.detach())
-        #     print("adding")
-        #     if quantize_train.shape[0] > 300:
-        #         break
-        #     continue
-            
-        outputs = torch.transpose(outputs, 1, 2)  # BCT -> BTC
-        #print(outputs.shape)
-        outputs, _, quantizer_loss = quantizer(outputs)
-        outputs = torch.transpose(outputs, 2,1)  # BTC -> BCT
+        self.scheduler_model = torch.optim.lr_scheduler.ExponentialLR(self.model_optimizer, gamma=gamma)
+        self.scheduler_discrim = torch.optim.lr_scheduler.ExponentialLR(self.discriminator_optimizer, gamma=gamma)
         
-        predicted_in = decoder(outputs)
+        self.writer = SummaryWriter(log_dir="logs-t/")
 
-        losses["quantization"].append(quantizer_loss.item())
-        loss = calc_loss(predicted_in, truth, quantizer_loss)
-        
+        self.steps = 1 # start steps at 1 so that we don't run logging on first step
 
-        optimizer.zero_grad()
-        loss.backward()
-        optimizer.step() # AHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH, DO NOT FORGET THIS, I spent a long time wondering "why isn't it learning anything"
+    def run_epoch(self):
+        self.models.train()
+        for x in tqdm(self.train_loader):
+            self.models.train()  # can't be too careful
+            x = x.to(self.device)
+            y, q_loss = self.models(x)
+            discrim_x, feature_x = self.models.discrim_forward(x)
+            discrim_y, feature_y = self.models.discrim_forward(y)
 
-        if steps % 120 == 0:
-            with torch.no_grad():
-                quantizer.deal_with_dead()
-
-        if (steps:=(steps+1)) % TENSORBOARD_INTERAVAL == 0:
-            print(f"{steps} steps done")
-            for i in losses:
-                writer.add_scalar(f"loss/{i}", sum(losses[i][-TENSORBOARD_INTERAVAL: ])/ min(len(losses[i]), TENSORBOARD_INTERAVAL), steps)
-            writer.flush()
-        if steps % VALID_SAVE_INTERVAL == 0:
-            encoder.eval()
-            decoder.eval()
             
-            lossx = []
-            for i, j in enumerate(valid_loader):
+            self.model_optimizer.zero_grad()
+            loss = self.loss_gen.get_loss(x, y, discrim_y, feature_x, feature_y, q_loss)
+            self.writer.add_scalar("test/main", loss.item(), self.steps)
+            loss.backward(retain_graph=True)#(retain_graph=True)
+
+            self.model_optimizer.step()
+            
+            self.discriminator_optimizer.zero_grad()
+            discrim_x, _ = self.models.discrim_forward(x.detach())  # TODO figure out if there is a cleaner way to do this without requiring two runs through discrim
+            discrim_y, _ = self.models.discrim_forward(y.detach())
+            discrim_loss = self.loss_gen.get_discrim_loss(discrim_x, discrim_y)  # TODO only do this one in every n times
+            
+            self.writer.add_scalar("test/discrim", discrim_loss.item(), self.steps)
+            discrim_loss.backward()
+            if self.steps % 3 < 2:
+                self.discriminator_optimizer.step()
+
+            if self.steps % 120 == 0:
                 with torch.no_grad():
-                    original = j.to(device)
-                    result = encoder(original)
-                    result, _, quantizer_loss = quantizer(result.transpose(-1, -2))
-                    result = decoder(result.transpose(-1, -2))
+                    self.models.quantizer.deal_with_dead()
 
-                    l = calc_loss(result, original, quantizer_loss, eval=True)
-                    lossx.append(l / j.shape[0])
+            if self.steps % 10 == 0:
+                self.loss_gen.plot(self.writer, self.steps)
+            if self.steps % 200 == 0:
+                self.gen_samples(f"epoch{self.models.epochs}")
+            self.steps += 1
 
-                    if i == 0:
-                        for x in range(4):
-                            utils.plot_spectrograms(spec(original[x, :16000]), spec(result[x, :16000]), file=f"{x}-truth.png")
-                            torchaudio.save(f"{x}-encoded.wav", result[x].to("cpu"), sample_rate=16000)
-                            torchaudio.save(f"{x}-clean.wav", j[x], sample_rate=16000)
-                            plt.close()
-                            plt.clf()
-            
-            writer.add_scalar(f"validloss/{i}", sum(lossx) / len(lossx), steps)
-            encoder.train()
-            decoder.train()
-            quantizer.train()
-        
-            torch.save(encoder.state_dict(), "logs/encoder.state")
-            torch.save(decoder.state_dict(), "logs/decoder.state")
-            torch.save(quantizer.state_dict(), "logs/quantizer.state")
-        
-    scheduler.step()
-    print(f"EPOCH {e} DONE!!!! - {loss}")
+        self.scheduler_model.step()
+        self.scheduler_discrim.step()
+
     
-    # if e == quantizer_enable_epoch:
-    #     print(quantize_train.shape)
-    #     quantizer.initialise(quantize_train)
-        
+    def save_model(self, folder_name):
+        self.models.save(folder_name)
+
+
+    def gen_samples(self, folder_name):
+        self.models.eval()
+        os.makedirs(f"samples/{folder_name}", exist_ok = True) 
+        for i, case in enumerate(self.valid_loader):
+            if i > 5:
+                break
+            output, _ = self.models(case.to("cuda"))
+            torchaudio.save(f"samples/{folder_name}/{i}-clean.wav", case[0], sample_rate=16000)
+            torchaudio.save(f"samples/{folder_name}/{i}-encoded.wav", output.cpu()[0], sample_rate=16000)
+        self.models.train()

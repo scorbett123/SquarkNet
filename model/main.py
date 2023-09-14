@@ -4,7 +4,7 @@ from model import datasets
 import models
 from torch.utils.data import DataLoader
 import vq
-import train_new
+import model.train as train
 from model.loss.loss import LossGenerator
 
 def main():
@@ -23,7 +23,7 @@ def main():
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
     #m = models.Models.load("logs-t/epoch23").to(device)
-    trainer = train_new.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
+    trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
     while True:
         trainer.run_epoch()
         m.epochs += 1
