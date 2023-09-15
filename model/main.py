@@ -11,7 +11,8 @@ def main():
     batch_size = 32
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    m = models.Models(256, 8, 1024, upstrides=[2,4,6,8], device=device)
+    # m = models.Models(256, 8, 1024, upstrides=[2,4,6,8], device=device)
+    m = models.Models.load("logs-t/epoch1/models.saved", device=device)
     context_length = m.ctx_len*32
 
     train_data = datasets.CommonVoice(context_length)

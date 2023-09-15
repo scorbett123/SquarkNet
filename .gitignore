@@ -4,6 +4,8 @@ venv/*
 *.wav
 *.state
 *.sc
+*.saved
+*.test
 test/*
 logs/*
 logs*/*
