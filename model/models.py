@@ -101,7 +101,7 @@ class Models(nn.Module):
         return hash_as_int
 
     
-    def load(folder_name="logs-t"):
+    def load(folder_name="logs-t", device="cpu"):
         if not folder_name.endswith(".saved"):
             folder_name += "/models.saved"
         m = torch.load(folder_name)
@@ -111,7 +111,7 @@ class Models(nn.Module):
         
         model_statedict = torch.load(io.BytesIO(m["models"]))
         params = m["params"]
-        models = Models(params["n_channels"], params["nbooks"], params["ncodes"], epochs=params["epochs"])
+        models = Models(params["n_channels"], params["nbooks"], params["ncodes"], epochs=params["epochs"], device=device)
         models.load_state_dict(model_statedict)
         return models
 
