@@ -24,7 +24,7 @@ class InvalidHashException(Exception):
     pass
 
 
-@torch.no_grad()
+@torch.inference_mode()
 def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
     model.eval()
     if not output_path.endswith(".wav"):
@@ -58,7 +58,7 @@ def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callab
     return result_wav
     
 
-@torch.no_grad()
+@torch.inference_mode()
 def wav_to_sc(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
     model.eval()
     if not output_path.endswith(".sc"):
