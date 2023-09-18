@@ -70,30 +70,30 @@ class EOFError(Exception):
 
 class FileReader(): # A java DataInputStream inspired reader, you can probably see my java origins coming in through here, but we work on the level of bits, not bytes
     def __init__(self, path: str) -> None:
-        self.file = open(path, mode="rb")
-        self.bytes = [int.from_bytes([byte], "big") for byte in self.file.read()]
-        self.front_pointer = 0 # The index of the next bit to be read
+        self._file = open(path, mode="rb")
+        self._bytes = [int.from_bytes([byte], "big") for byte in self._file.read()]
+        self._front_pointer = 0 # The index of the next bit to be read
 
     def read_bit(self):
-        if self.front_pointer // 8 == len(self.bytes):
+        if self._front_pointer // 8 == len(self._bytes):
             return EOFError
-        index_in_byte = self.front_pointer % 8
+        index_in_byte = self._front_pointer % 8
         mask = 0b10000000 >> index_in_byte
-        bit = (self.bytes[self.front_pointer // 8] & mask) >> (7-index_in_byte)
-        self.front_pointer += 1
+        bit = (self._bytes[self._front_pointer // 8] & mask) >> (7-index_in_byte)
+        self._front_pointer += 1
         return bit
 
     def read_byte(self):  # TODO create more efficient variant of this
         return self.read_n_bits(8)
 
     def read_n_bits(self, n_bits):
-        if (self.front_pointer + n_bits - 1) // 8 == len(self.bytes):
+        if (self._front_pointer + n_bits - 1) // 8 == len(self._bytes):
             raise EOFError
-        f_in_byte = (self.front_pointer) % 8
+        f_in_byte = (self._front_pointer) % 8
 
         if f_in_byte == 0 and n_bits >= 8:  # this doesn't always help, but can sometimes bring around great benefits
-            val = self.bytes[self.front_pointer // 8]
-            self.front_pointer += 8
+            val = self._bytes[self._front_pointer // 8]
+            self._front_pointer += 8
             if n_bits > 8:
                 return val << (n_bits - 8) | self.read_n_bits(n_bits-8)
             else:
@@ -108,8 +108,8 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
         m2 = ~((1 << space_after) - 1)  # eliminate after
         mask = m1 & m2
 
-        val = ((self.bytes[self.front_pointer // 8] & mask) >> space_after) << (space_before)
-        self.front_pointer += min(fit, n_bits)
+        val = ((self._bytes[self._front_pointer // 8] & mask) >> space_after) << (space_before)
+        self._front_pointer += min(fit, n_bits)
         remaining = n_bits - fit
         if remaining > 0:
             return val + self.read_n_bits(remaining)
@@ -127,7 +127,7 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
         return (s1 << 16) + s2
     
     def close(self):
-        self.file.close()
+        self._file.close()
 
 
 class FileWriter():
@@ -181,7 +181,6 @@ class FileWriter():
 
         mask = m1 & m2
         result = ((to_write << space_after) >> space_before) & mask
-
         # if len(self.bytes) <= ((self.front_pointer+1) // 8):  # we need to be careful here incase someone has messed with self.front_pointer, and it hasn't necesarily incremented how we'd expect
         #     self.bytes.append(0)
         

@@ -12,7 +12,7 @@ def main():
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
     # m = models.Models(256, 8, 1024, upstrides=[2,4,6,8], device=device)
-    m = models.Models.load("logs-t/epoch1/models.saved", device=device)
+    m = models.Models.load("logs-t/epoch11/models.saved", device=device)
     context_length = m.ctx_len*32
 
     train_data = datasets.CommonVoice(context_length)
@@ -27,9 +27,9 @@ def main():
     trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
     while True:
         trainer.run_epoch()
-        m.epochs += 1
         trainer.save_model(f"epoch{m.epochs}")
-        print(f"Epoch {m.epochs} done")
+        m.epochs += 1
+        print(f"Epoch {m.epochs} starting")
 
 if __name__ == "__main__":
     main()

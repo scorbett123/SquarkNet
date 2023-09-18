@@ -44,13 +44,13 @@ class ReconstructionLossFreq(Loss):
 
     def loss_for_spec(self, x, y, spec) -> torch.Tensor:
         xs, ys = spec(x), spec(y)
-        return F.l1_loss(xs, ys) + self.beta * F.mse_loss(xs, ys)  # TODO soundstream seems to take a log here, could fix the problem of mse being so much higher than l1
+        return F.l1_loss(xs, ys) + self._beta * F.mse_loss(xs, ys)  # TODO soundstream seems to take a log here, could fix the problem of mse being so much higher than l1
 
     def get_raw_value(self, x, y):
         total = 0.0
-        for spec in self.specs:  #  can't use list comprehension here as pytorch then plays tricks
+        for spec in self._specs:  #  can't use list comprehension here as pytorch then plays tricks
             total = total + self.loss_for_spec(x, y, spec)
-        return total / len(self.specs)
+        return total / len(self._specs)
     
 class ReconstructionLossTime(Loss):  # From what I can tell the ONLY purpose of this is making silence actually silent, some noise can escape the freq loss.
     def __init__(self, weight, **args) -> None:
