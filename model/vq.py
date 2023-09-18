@@ -47,7 +47,7 @@ class VQ(nn.Module):
         loss1 = F.mse_loss(x.detach(), values)  # only train the embedding
         loss2 = F.mse_loss(x, values.detach())  # only train the encoder
 
-        values = x + (values -x).detach()
+        values = x + (values - x).detach()
 
         if self.training:
             self.usages = self.usages + torch.sum(one_hot.reshape(-1, self.codebook_size), dim=-2)
