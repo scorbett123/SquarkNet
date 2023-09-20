@@ -102,17 +102,17 @@ class FileReader(): # A java DataInputStream inspired reader, you can probably s
         fit = 8-f_in_byte
 
         space_after = max(fit-n_bits, 0)
-        space_before = f_in_byte + max(n_bits - fit, 0)
+        space_before =0# max(8 - f_in_byte - n_bits, 0)
+        # we want to be 0, unless all can fit in remainging byte
 
         m1 = (1 << fit) - 1  # eliminate before
         m2 = ~((1 << space_after) - 1)  # eliminate after
         mask = m1 & m2
-
         val = ((self._bytes[self._front_pointer // 8] & mask) >> space_after) << (space_before)
         self._front_pointer += min(fit, n_bits)
         remaining = n_bits - fit
         if remaining > 0:
-            return val + self.read_n_bits(remaining)
+            return (val << remaining) + self.read_n_bits(remaining)
         else:
             return val
 
@@ -174,12 +174,12 @@ class FileWriter():
 
         fit = 8 - f_in_byte
         space_after = max(fit - n_bits, 0)  # how much space do we have after
-        space_before = f_in_byte + max(n_bits - fit, 0)
+        space_before = max(f_in_byte + (n_bits - 8), 0)
 
         m1 = (1 << fit) - 1  # eliminate before
         m2 = ~((1 << space_after) - 1)  # eliminate after
 
-        mask = m1 & m2
+        mask = m1 & m2 
         result = ((to_write << space_after) >> space_before) & mask
         # if len(self.bytes) <= ((self.front_pointer+1) // 8):  # we need to be careful here incase someone has messed with self.front_pointer, and it hasn't necesarily incremented how we'd expect
         #     self.bytes.append(0)
