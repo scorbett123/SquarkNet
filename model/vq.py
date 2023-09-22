@@ -14,7 +14,7 @@ class VQ(nn.Module):
         self.embedding = nn.Parameter(torch.zeros((codebook_size, codeword_size)))
         self.embedding.data.uniform_(-1.0 / (n**2), 1.0 / (n**2)) # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
 
-        usages = torch.zeros((codebook_size))  # switch to using torch.register_buffer / equivalent to do this properly
+        usages = torch.zeros((codebook_size), requires_grad=False)
         self.register_buffer('usages', usages)
         self.cache = None
 

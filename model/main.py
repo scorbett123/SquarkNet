@@ -11,20 +11,20 @@ def main():
     batch_size = 32
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    # m = models.Models(256, 8, 1024, upstrides=[2,4,6,8], device=device)
-    m = models.Models.load("logs-t/epoch11/models.saved", device=device)
+    m = models.Models(192, 3, 512, upstrides=[2,4,6,8], device=device)
+    # m = models.Models.load("logs-t/epoch11/models.saved", device=device)
     context_length = m.ctx_len*32
 
     train_data = datasets.CommonVoice(context_length)
-    valid_loader = datasets.CommonVoice(16000 * 30, "test")
+    valid_loader = datasets.CommonVoice(context_length, "test", length = 100)
 
     train_dataloader = DataLoader(train_data, batch_size=batch_size, shuffle=True, num_workers=8)
-    valid_loader = DataLoader(valid_loader, batch_size=1)  # TODO increase batch size here, just 1 for testing
+    valid_loader = DataLoader(valid_loader, batch_size=batch_size, num_workers=8)
 
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
     #m = models.Models.load("logs-t/epoch23").to(device)
-    trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
+    trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.0001)
     while True:
         trainer.run_epoch()
         trainer.save_model(f"epoch{m.epochs}")

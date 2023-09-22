@@ -38,16 +38,19 @@ class LibriTTS(Dataset):
         
         
 class CommonVoice(Dataset):
-    def __init__(self, clip_length, mode: str="train", path: str="/mnt/d/datasets/CommonVoice/cv-corpus-14.0-2023-06-23/en") -> None:
+    def __init__(self, clip_length, mode: str="train", path: str="/mnt/d/datasets/CommonVoice/cv-corpus-14.0-2023-06-23/en", length: int=-1) -> None:
         super().__init__()
         self._path = path
         self._clip_length = clip_length
+        self._length = length
         
         with open(f"{path}/{mode}.tsv") as f:
             lines = f.readlines()
 
         titles = lines[0].split("\t")
         self._data = [{titles[j]: d for j, d in enumerate(line.split("\t"))} for line in lines[1:]]
+        if self._length != -1 and self._length < len(self._data):
+            self._data = random.choices(self._data, k=self._length)
         
     def __len__(self):
         return len(self._data)
@@ -112,5 +115,5 @@ class ValidateSpeechDataset(Dataset):
 
 
 if __name__ == "__main__":
-    cv = CommonVoice(4000)
-    print(cv[0].shape)
+    cv = CommonVoice(100, "test")
+    print(len(cv))
