@@ -24,10 +24,10 @@ class STFTDiscriminator(torch.nn.Module):
         self._transform = torchaudio.transforms.Spectrogram(n_fft=(scale - 1) * 2, win_length=scale, normalized=False, power=None, center=False, pad_mode=None)
 
         self._convs = nn.ModuleList([
-            weight_norm(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=kernel_size, padding=get_padding_nd((3,8), (1,1)))),
-            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(1,1), padding=get_padding_nd((3,8), (1,1)))),
-            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(2,1), padding=get_padding_nd((3,8), (2,1)))),
-            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(4,1), padding=get_padding_nd((3,8), (4,1)))),
+            weight_norm(nn.Conv2d(in_channels=1, out_channels=32, kernel_size=kernel_size, padding=get_padding_nd(kernel_size, (1,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(1,1), padding=get_padding_nd(kernel_size, (1,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(2,1), padding=get_padding_nd(kernel_size, (2,1)))),
+            weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=kernel_size, stride=(1,2), dilation=(4,1), padding=get_padding_nd(kernel_size, (4,1)))),
             weight_norm(nn.Conv2d(in_channels=32, out_channels=32, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1)))),
             weight_norm(nn.Conv2d(in_channels=32, out_channels=1, kernel_size=(3,3), padding=get_padding_nd((3,3), (1,1))))
         ])
