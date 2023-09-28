@@ -49,7 +49,7 @@ class STFTDiscriminator(torch.nn.Module):
         
         logits = torch.nn.functional.tanh(spec)
 
-        return logits.view(logits.shape[0], -1).mean(dim=1), internal_activations # dunno if this is meant to be here, not mentioned in paper, but makes sense to me... TODO when there is bugs this is probably it
+        return logits.view(logits.shape[0], -1).mean(dim=1), internal_activations
     
 class MultiScaleSTFTDiscriminator(torch.nn.Module):
     def __init__(self, scales = [2048, 1024, 512, 256, 128]) -> None:
