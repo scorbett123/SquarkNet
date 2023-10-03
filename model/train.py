@@ -57,12 +57,9 @@ class Trainer:
             if self.steps % 3 < 2:
                 self.discriminator_optimizer.step()
 
-            self.model_optimizer.zero_grad(set_to_none=True)
-            self.discriminator_optimizer.zero_grad(set_to_none=True)
-
             del x, discrim_x, discrim_y, discrim_loss, loss, feature_x, feature_y, y, q_loss  # we del them here so that when we deal with validation we don't care about them
 
-            if self.steps % 120 == 0:
+            if self.steps % 400 == 0:
                 with torch.no_grad():
                     self.models.quantizer.deal_with_dead()
 
@@ -90,7 +87,7 @@ class Trainer:
             
             total_loss += self.loss_gen.get_valid_loss(x, y, discrim_x, discrim_y, feat_x, feat_y, quant_loss)
         
-        total_loss.write(self.writer)
+        total_loss.write(self.writer, self.steps)
         self.models.train()
 
 

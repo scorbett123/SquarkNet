@@ -6,11 +6,11 @@ class LossGenerator():  # TODO more params such as weights etc.
     def __init__(self, context_length, batch_size, device="cpu") -> None:
         self.discrim_ad_loss = DiscriminatorAdversairialLoss(1).to(device)
 
-        self.discrim_loss = DiscriminatorLoss(4).to(device)
-        self.feature_loss = FeatureLoss(4).to(device)
-        self.recon_loss = ReconstructionLoss(0.005, 1).to(device)  # first value should be as low as needed for silence to be silent.
+        self.discrim_loss = DiscriminatorLoss(2).to(device)
+        self.feature_loss = FeatureLoss(3).to(device)
+        self.recon_loss = ReconstructionLoss(0.005, 2).to(device)  # first value should be as low as needed for silence to be silent.
         self.quantization_loss = SetLoss("quantization_loss", 2).to(device)
-        self.whisper_loss = WhisperLoss(context_length, batch_size,1).to(device)
+        self.whisper_loss = WhisperLoss(context_length, batch_size,3).to(device)
 
         self.losses = [self.discrim_ad_loss, self.discrim_loss, self.feature_loss, self.recon_loss, self.quantization_loss, self.whisper_loss]
         # TODO feature loss
@@ -56,6 +56,8 @@ class ValidLoss:
                     self.feature_loss + other.feature_loss,
                     self.discrim_adversairial_loss + other.discrim_adversairial_loss)
     
-    def write(self, writer: SummaryWriter):
-        writer.add_scalars("valid", asdict(self))
+    def write(self, writer: SummaryWriter, steps: int):
+        ad = asdict(self)
+        for key in ad:
+            writer.add_scalar(f"valid/{key}", ad[key], steps)
 

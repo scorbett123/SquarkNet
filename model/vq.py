@@ -3,8 +3,24 @@ import torch.nn.functional as F
 import random
 import torch
 
-class VQ(nn.Module):
 
+class VectorCache():
+    def __init__(self, length) -> None:
+        self._length = length
+        self._vectors = []  # if I need to I could implement a proper circular queue here
+
+    def add_vector(self, new_vector: torch.Tensor):
+        new_vector.requires_grad = False
+        self._vectors.append(new_vector)
+        if len(self._vectors) > self._length:
+            self._vectors.pop(0)
+
+    def concat(self) -> torch.Tensor:
+        return torch.cat(self._vectors, dim=0)
+
+
+
+class VQ(nn.Module):
     def __init__(self, codebook_size, codeword_size, n=1, beta=0.2) -> None:
         super().__init__()
         self.codebook_size = codebook_size
@@ -16,30 +32,63 @@ class VQ(nn.Module):
 
         usages = torch.zeros((codebook_size), requires_grad=False)
         self.register_buffer('usages', usages)
-        self.cache = None
+        self.cache = VectorCache(20)
 
 
     def apply_dead(self):
         indices_of_dead = self.usages == 0 # WARNING this doesn't actually give a list of indices, but a list of true / false values
         indices_of_alive = self.usages > 0
         
-        len_indices_of_dead = indices_of_dead.nonzero(as_tuple=True)[0].shape[0]
-        #weighted_average = torch.matmul(self.usages.unsqueeze(1), self.embedding.data.transpose(-1, -2)) / torch.sum(self.usages)
-        if self.cache == None:
-            self.embedding[indices_of_dead, :] = torch.randn((len_indices_of_dead, self.codeword_size))
-        else:
-            r = torch.randperm(self.cache.shape[0])[:len_indices_of_dead]
-            self.embedding[indices_of_dead, :] = self.cache[r, :]
+        self.frozen_kmeans(self.cache.concat(), indices_of_alive)
         
-        self.usages[:] = torch.zeros((self.codebook_size))
+        self.usages[:] = torch.zeros((self.codebook_size), requires_grad=False)
+    
+    def decode(self, indexes):
+        one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
+        values = torch.matmul(one_hot, self.embedding)
+        return values
+
+    
+    @torch.no_grad()
+    def frozen_kmeans(self, cached, fronzen_state, kmeans_iters=5):
+        frozen_length = torch.sum(fronzen_state)  # shorthand for count boolean
+        unfrozen_length = fronzen_state.shape[0] - frozen_length
+        unique_vecs = cached.unique(dim=0)
+
+        random_idx = torch.randperm(unique_vecs.size(dim=0))[:unfrozen_length]
+        self.embedding[torch.logical_not(fronzen_state)] = cached[random_idx]
+
+        ## Initialisaation complete move on to algorithm
+
+        for _ in range(kmeans_iters):
+            distances = torch.sum(cached**2, dim=1, keepdim=True) + torch.sum(self.embedding, dim=1) - 2.0 * torch.matmul(cached, self.embedding.t())  # calculate the distances from each centroid to the value
+            dists, indexes = torch.min(distances, dim=1)
+
+            counts = torch.bincount(indexes, minlength=fronzen_state.shape[0])  # count the number in each bin
+            counts[fronzen_state] = -1  # make sure to mark as frozen
+
+            ### First deal with those with no nearby points ###
+            # These have to be dealt with separately as otherwise would get NaN
+            #  get the indices of the points furthest away from their centroid
+            indices = torch.sort(dists).indices[:torch.sum(counts==0)]  # torch.sum(Tensor[bool]) is short hand for count number of trues
+            self.embedding[counts == 0] = cached[indices]
+
+            ### Then deal with the means ###
+            oh = F.one_hot(indexes, num_classes=fronzen_state.shape[0]).to(torch.float32).t() 
+
+            amount_of_each = torch.sum(oh, dim=1)
+            total_of_each = torch.matmul(oh, cached)
+            result_means = total_of_each / torch.unsqueeze(amount_of_each, 1)
+            # be careful with result means, where counts = 0 result means > 0
+
+            self.embedding[counts > 0] = result_means[counts > 0]
 
 
     def forward(self, x):
-        self.cache = x.reshape(-1, self.codeword_size).detach()
+        self.cache.add_vector(x.reshape(-1, self.codeword_size).detach())
         dist = torch.sum(x**2, dim=-1, keepdim=True) + torch.sum(self.embedding**2, dim=1) - 2.0 * torch.matmul(x, self.embedding.t()) # x^2 + y^2 - 2xy
         vals, indexes = torch.min(dist, dim=-1) # this isn't differentiable, so need to add in loss later (passthrough loss)
         
-
         #  Two lines below are just normal style embedding
         one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
         values = torch.matmul(one_hot, self.embedding)
@@ -51,64 +100,21 @@ class VQ(nn.Module):
 
         if self.training:
             self.usages = self.usages + torch.sum(one_hot.reshape(-1, self.codebook_size), dim=-2)
-        # print(torch.sum(one_hot.view(-1, self.codebook_size), dim=-2).nonzero().shape)
-        # print(self.usages.nonzero())
         
         return values, indexes, loss1 + loss2 * self.encoder_fit_vq_factor
     
-    
-    def decode(self, indexes):
-        one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
-        values = torch.matmul(one_hot, self.embedding)
-        return values
-
-    
-    def initialise(self, x): # for now this code doesn't need to be efficient as only run once. My own take on k_means
-        x = x.transpose(1, 2)  # B C T -> B T C
-        vectors = x.flatten(end_dim=1)
-        unique_vectors = vectors.unique(dim=0)
-
-        random_idx = torch.randperm(unique_vectors.size(dim=0))[:self.codebook_size]
-        if random_idx.shape[0] < self.codebook_size:
-            mean = torch.mean(vectors)
-            std = torch.std(vectors)
-            return torch.cat((unique_vectors[random_idx], torch.empty((self.codebook_size - random_idx.shape[0]))), dim=0)
-
-        kmeans_centroids = unique_vectors[random_idx] # initialise the centroids for kmeans on randomly selected points from data
-
-        for i in range(5): # kmeans iter
-            # each vector finds its closest centroid
-            distances = torch.sum(vectors**2, dim=1, keepdim=True) + torch.sum(kmeans_centroids**2, dim=1) - 2.0 * torch.matmul(vectors, kmeans_centroids.t())
-            dists, indexes = torch.min(distances, dim=1)
-
-            # for each centroid find the average position
-            for i in range(self.codebook_size):
-                cluster_indices = torch.nonzero(indexes == i).squeeze(1)
-                if cluster_indices.shape[0] > 0:
-                    one_hot_eq = F.one_hot(cluster_indices, num_classes=vectors.shape[0]).float()
-                    cluster_vals = torch.matmul(one_hot_eq, vectors)
-                    average = cluster_vals.sum(dim=0) / cluster_indices.shape[0]
-                    
-                    kmeans_centroids[i] = average
-                else:
-                    print(dists.shape)
-                    random_vector, _ = torch.max(dists, dim=0) # instead of random initialization as in the paper, initalize to whereever is worst represented
-                    #dists = dists[dists[:] == random_vector]
-                    kmeans_centroids[i] = random_vector
-        with torch.no_grad():
-            self.embedding[:] = kmeans_centroids[:]
-    
-
 
 
 class RVQ(torch.nn.Module):
     """ Simple residual vector quantizer, Algo. 1 in https://arxiv.org/pdf/2107.03312.pdf"""
-    def __init__(self, n_residuals, codebook_size, codeword_size) -> None:
+    def __init__(self, n_residuals, codebook_size, codeword_size, bypass_factor=0.5) -> None:
         super().__init__()
         self.n_residals = n_residuals
         self.codebook_size = codebook_size
         self.codeword_size = codeword_size
         self.quantizers = nn.ModuleList([VQ(self.codebook_size, self.codeword_size) for i in range(n_residuals)])
+
+        self.bypass_factor = bypass_factor
 
     def forward(self, x):
         y_hat = torch.zeros_like(x)
@@ -126,6 +132,10 @@ class RVQ(torch.nn.Module):
         loss = loss / len(self.quantizers)
         
         y_hat = x + (y_hat - x).detach() # maintains gradients in x, but removes the ones we don't want in y_hat
+
+        if self.training:
+            y_hat = (y_hat + x * self.bypass_factor) / (1+self.bypass_factor)  # weighted average of y and bypass, this allows quicker training of the encoder
+
         return y_hat, indices, loss
     
     def encode(self, data):

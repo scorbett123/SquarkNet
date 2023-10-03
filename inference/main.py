@@ -21,7 +21,6 @@ class Worker(QtCore.QObject):
         self.args = args
         self.kwargs = kwargs
 
-
     def run(self):
         self.kwargs["progress_callback"] = self.progress.emit
         try:
