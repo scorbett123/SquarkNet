@@ -10,7 +10,6 @@ class VectorCache():
         self._vectors = []  # if I need to I could implement a proper circular queue here
 
     def add_vector(self, new_vector: torch.Tensor):
-        new_vector.requires_grad = False
         self._vectors.append(new_vector)
         if len(self._vectors) > self._length:
             self._vectors.pop(0)
@@ -38,7 +37,7 @@ class VQ(nn.Module):
     def apply_dead(self):
         indices_of_dead = self.usages == 0 # WARNING this doesn't actually give a list of indices, but a list of true / false values
         indices_of_alive = self.usages > 0
-        
+
         self.frozen_kmeans(self.cache.concat(), indices_of_alive)
         
         self.usages[:] = torch.zeros((self.codebook_size), requires_grad=False)
@@ -51,7 +50,7 @@ class VQ(nn.Module):
     
     @torch.no_grad()
     def frozen_kmeans(self, cached, fronzen_state, kmeans_iters=5):
-        frozen_length = torch.sum(fronzen_state)  # shorthand for count boolean
+        frozen_length = torch.sum(fronzen_state).to(torch.int32)  # shorthand for count boolean
         unfrozen_length = fronzen_state.shape[0] - frozen_length
         unique_vecs = cached.unique(dim=0)
 

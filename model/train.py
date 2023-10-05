@@ -59,7 +59,7 @@ class Trainer:
 
             del x, discrim_x, discrim_y, discrim_loss, loss, feature_x, feature_y, y, q_loss  # we del them here so that when we deal with validation we don't care about them
 
-            if self.steps % 400 == 0:
+            if self.steps % 100 == 0:
                 with torch.no_grad():
                     self.models.quantizer.deal_with_dead()
 
