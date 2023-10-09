@@ -131,10 +131,7 @@ class RVQ(torch.nn.Module):
         loss = loss / len(self.quantizers)
         
         y_hat = x + (y_hat - x).detach() # maintains gradients in x, but removes the ones we don't want in y_hat
-
-        if self.training:
-            y_hat = (y_hat + x * self.bypass_factor) / (1+self.bypass_factor)  # weighted average of y and bypass, this allows quicker training of the encoder
-
+        
         return y_hat, indices, loss
     
     def encode(self, data):
