@@ -10,7 +10,7 @@ from loss import loss
 
 
 class Trainer:
-    def __init__(self, models: Models, train_loader: DataLoader, valid_loader: DataLoader, loss_gen: loss.LossGenerator, device="cpu", learning_rate=0.0002, betas=[0.5, 0.9], discrim_learning_rate=0.0002, gamma=0.98) -> None:
+    def __init__(self, models: Models, train_loader: DataLoader, valid_loader: DataLoader, loss_gen: loss.LossGenerator, device="cpu", learning_rate=0.0002, betas=[0.5, 0.9], discrim_learning_rate=0.0002, gamma=0.99) -> None:
         self.models = models
         self.learning_rate = learning_rate
         self.discrim_learning_rate = discrim_learning_rate

@@ -273,8 +273,8 @@ class EncodeDecodeContainer(QFrame):
 class MainWindow(QMainWindow):
     def __init__(self):
         super().__init__()
-
         self.setWindowTitle("My App")
+
         self.model_select = ModelSelectionWidget()
         self.model_stats = ModelStatsWidget()
         self.encode_decode = EncodeDecodeContainer(main_window=self)
@@ -293,6 +293,7 @@ class MainWindow(QMainWindow):
         widget = QWidget()
         widget.setLayout(layout)
         self.setCentralWidget(widget)
+        self.setFixedSize(600, 300)
 
     def on_model_select(self, model):
         self.model = model
