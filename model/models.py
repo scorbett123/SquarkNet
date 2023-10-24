@@ -60,8 +60,8 @@ class Models(nn.Module):
     def discrim_forward(self, x):
         return self.discriminator(x)
     
-    def save(self, folder_name):
-        os.makedirs(f"logs-t/{folder_name}", exist_ok = True) 
+    def save(self, file_name):
+        os.makedirs(f"{''.join(file_name.split('/')[:-1])}", exist_ok = True) 
         buffer = io.BytesIO()
         torch.save(self.state_dict(), buffer)
         buffer.seek(0)
@@ -82,7 +82,7 @@ class Models(nn.Module):
             "models": model_files
         }
         
-        torch.save(result, f"logs-t/{folder_name}/models.saved")
+        torch.save(result, f"{file_name}")
 
     
     @property
@@ -102,8 +102,6 @@ class Models(nn.Module):
 
     
     def load(folder_name="logs-t", device="cpu"):
-        if not folder_name.endswith(".saved"):
-            folder_name += "/models.saved"
         m = torch.load(folder_name)
 
         if hashlib.md5(m["models"]).digest() != m["model_hash"]:

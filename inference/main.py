@@ -91,12 +91,11 @@ class ProgressBar(QWidget):
 
 class FileSelectionWidget(QFrame):
     file_chosen = QtCore.pyqtSignal(str)
-    def __init__(self, name: str, filter: str, open=True, force_ends="") -> None:
+    def __init__(self, name: str, filter: str, open=True) -> None:
         super().__init__()
         self.filter = filter
         self.name = name
         self.open = open
-        self.force_ends = force_ends
         
         self.setObjectName("FileSelectionWidget")
 
@@ -132,8 +131,6 @@ class FileSelectionWidget(QFrame):
             fname = QFileDialog.getSaveFileName(self, 'Save file', 
             '', self.filter)[0]
         
-        if (not fname.endswith(self.force_ends)) and fname != "":
-            fname += self.force_ends
         self.filename = fname
         self._file_name.setText(fname if fname else "No file selected")
         self.file_chosen.emit(fname)
@@ -145,7 +142,7 @@ class ModelSelectionWidget(QWidget):
         super().__init__()
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Model Selection"))
-        self.file_select = FileSelectionWidget("Model File", "Model files ()", force_ends=".saved")
+        self.file_select = FileSelectionWidget("Model File", "Model files (.saved)")
         self.file_select.file_chosen.connect(self.model_update)
 
         layout.addWidget(self.file_select)
@@ -179,18 +176,15 @@ class ModelStatsWidget(QWidget):
         bitrate = 16000 / models.ctx_len * models.nbooks * math.log2(models.ncodes) / 1000
         self.bitrate.setText(f"Bitrate: {bitrate:.2f} kbps")
 
-        # bitrate = math.ceil(math.log2(models.ncodes) * models.nbooks)
-        # self.bitrate.setText(f"Bitrate: {round(bitrate / 1000, 1)} kbps")
-
 
 class EncodeDecodeWidget(QWidget):
-    def __init__(self, name, input_filter, output_filter, output_type, main_window):
+    def __init__(self, name, input_filter, output_filter, main_window):
         super().__init__()
         self.main_window = main_window
         layout = QVBoxLayout()
         layout.addWidget(QLabel(name))
         self.input_select = FileSelectionWidget("Input", input_filter)
-        self.output_select = FileSelectionWidget("Output", output_filter, open=False, force_ends=output_type)
+        self.output_select = FileSelectionWidget("Output", output_filter, open=False)
 
         self.input_select.file_chosen.connect(self.update_button)
         self.output_select.file_chosen.connect(self.update_button)

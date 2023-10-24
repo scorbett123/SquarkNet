@@ -27,9 +27,6 @@ class InvalidHashException(Exception):
 @torch.inference_mode()
 def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
     model.eval()
-    if not output_path.endswith(".wav"):
-        output_path += ".wav"
-
     f = file_structure.File.read(path)
 
     if f.model_hash != model.hash:
@@ -61,8 +58,6 @@ def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callab
 @torch.inference_mode()
 def wav_to_sc(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
     model.eval()
-    if not output_path.endswith(".sc"):
-        output_path += ".sc"
     sound, sample_rate = torchaudio.load(path)
     audio_data = norm(sound)
 
@@ -94,8 +89,6 @@ def wav_to_sc(path, output_path, model: models.Models, progress_callback: Callab
 def wav_to_sc_short(path, output_path, model: models.Models):
     """ This does no clever stuff to reduce memory usage, ONLY intended as a test for if result is the same """
     try:
-        if not output_path.endswith(".sc"):
-            output_path += ".sc"
         sound, sample_rate = torchaudio.load(path)
         sound = norm(sound)
 
@@ -116,9 +109,6 @@ def wav_to_sc_short(path, output_path, model: models.Models):
 def sc_to_wav_short(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
     """ This does no clever stuff to reduce memory usage, ONLY intended as a test for if result is the same """
     try:
-        if not output_path.endswith(".wav"):
-            output_path += ".wav"
-
         f = file_structure.File.read(path)
         
         indices = torch.tensor(f.data).unsqueeze(0)

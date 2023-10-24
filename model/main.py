@@ -26,7 +26,7 @@ def main():
     trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
     while True:
         trainer.run_epoch()
-        trainer.save_model(f"epoch{m.epochs}")
+        trainer.save_model(f"logs-t/epoch{m.epochs}/model.saved")
         m.epochs += 1
         print(f"Epoch {m.epochs} starting")
 
