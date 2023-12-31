@@ -1,4 +1,3 @@
-from model.datasets import *
 import torch
 from model import models
 import torch
@@ -7,8 +6,6 @@ from model.utils import norm
 import torchaudio
 import traceback
 from typing import Callable
-
-
 
 PADDING_LEN = 10
 SEGMENT_LEN = 290
@@ -25,7 +22,7 @@ class InvalidHashException(Exception):
 
 
 @torch.inference_mode()
-def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
+def sc_to_wav(path: str, output_path: str, model: models.Models, progress_callback: Callable[[float], None] = None):
     model.eval()
     f = file_structure.File.read(path)
 
@@ -56,7 +53,7 @@ def sc_to_wav(path, output_path, model: models.Models, progress_callback: Callab
     
 
 @torch.inference_mode()
-def wav_to_sc(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
+def wav_to_sc(path: str, output_path: str, model: models.Models, progress_callback: Callable[[float], None] = None):
     model.eval()
     sound, sample_rate = torchaudio.load(path)
     audio_data = norm(sound)
@@ -86,7 +83,7 @@ def wav_to_sc(path, output_path, model: models.Models, progress_callback: Callab
 
 
 @torch.no_grad()
-def wav_to_sc_short(path, output_path, model: models.Models):
+def wav_to_sc_short(path: str, output_path: str, model: models.Models):
     """ This does no clever stuff to reduce memory usage, ONLY intended as a test for if result is the same """
     try:
         sound, sample_rate = torchaudio.load(path)
@@ -106,7 +103,7 @@ def wav_to_sc_short(path, output_path, model: models.Models):
         return False
 
 @torch.no_grad()
-def sc_to_wav_short(path, output_path, model: models.Models, progress_callback: Callable[[float], None] = None):
+def sc_to_wav_short(path: str, output_path: str, model: models.Models, progress_callback: Callable[[float], None] = None):
     """ This does no clever stuff to reduce memory usage, ONLY intended as a test for if result is the same """
     try:
         f = file_structure.File.read(path)

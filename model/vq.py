@@ -42,12 +42,6 @@ class VQ(nn.Module):
         
         self.usages[:] = torch.zeros((self.codebook_size), requires_grad=False)
     
-    def decode(self, indexes):
-        one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
-        values = torch.matmul(one_hot, self.embedding)
-        return values
-
-    
     @torch.no_grad()
     def frozen_kmeans(self, cached, fronzen_state, kmeans_iters=5):
         frozen_length = torch.sum(fronzen_state).to(torch.int32)  # shorthand for count boolean
@@ -81,7 +75,12 @@ class VQ(nn.Module):
             # be careful with result means, where counts = 0 result means > 0
 
             self.embedding[counts > 0] = result_means[counts > 0]
-
+    
+    
+    def decode(self, indexes):
+        one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
+        values = torch.matmul(one_hot, self.embedding)
+        return values
 
     def forward(self, x):
         self.cache.add_vector(x.reshape(-1, self.codeword_size).detach())

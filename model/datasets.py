@@ -90,13 +90,12 @@ class SetAudioDataset(Dataset):
         
 
 class ValidateSpeechDataset(Dataset):
-    def __init__(self, clip_length):
+    def __init__(self):
         """ all will be multiples of clip_length """
         self._audio_files = glob.glob("datasets/speech_valid/*.wav")
         random.Random(12321).shuffle(self._audio_files)  # make them appear in a random order, set seed for reproducibility
         # We have to do the above otherwise it is likely we train on one speaker for a bit, and then move on to another, etc, possibly not generalizing the model then
         self._audio_files = self._audio_files[:5]
-        self._clip_length = clip_length
 
     def __len__(self):
         return len(self._audio_files)
@@ -107,7 +106,6 @@ class ValidateSpeechDataset(Dataset):
         assert sound.shape[0] == 1
         assert sample_rate == 16000
 
-        #padding = torch.zeros(1, self.clip_lenth * math.ceil(sound.shape[1] / self.clip_lenth))
         padding = torch.zeros(1, 16000 * 30)
         padding[:, :sound.shape[1]] = sound
         return padding

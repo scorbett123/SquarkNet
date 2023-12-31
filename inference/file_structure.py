@@ -37,8 +37,6 @@ class File:
         self.data_bit_depth = data_bit_depth
         self.data = data
         self.model_hash = model_hash
-
-        # TODO add exceptions for when data is of wrong length / wrong codebook count
     
 
     def write(self, filepath):
@@ -145,7 +143,7 @@ class FileWriter():
         index_in_byte = self.front_pointer % 8
         self.bytes[self.front_pointer // 8] |= (bit << (7-index_in_byte))  # use or here to incase there is any existing data
 
-    def write_byte(self, byte):  # TODO, this should interact directly with bytes, but need to take into account the byte may be split
+    def write_byte(self, byte):
         self.write_n_bits(byte, n_bits=8)
         
     def write_short(self, short):
@@ -181,9 +179,6 @@ class FileWriter():
 
         mask = m1 & m2 
         result = ((to_write << space_after) >> space_before) & mask
-        # if len(self.bytes) <= ((self.front_pointer+1) // 8):  # we need to be careful here incase someone has messed with self.front_pointer, and it hasn't necesarily incremented how we'd expect
-        #     self.bytes.append(0)
-        
         self.bytes[(self.front_pointer+1) // 8] |= result
 
         self.front_pointer += min(fit, n_bits)
@@ -192,41 +187,7 @@ class FileWriter():
         if remaining > 0:
             self.write_n_bits(to_write, remaining)
 
-
-        # for i in range(n_bits):
-        #     self.write_bit(to_write >> (n_bits - 1 - i))
-
     def close(self):
         self.file.write(bytes(byte & 0xFF for byte in self.bytes))
         self.file.close()
         
-
-        
-# just some testing stuff
-if __name__ == "__main__": 
-    s = timeit.default_timer()
-    f = File(data=[[10, 10, 10, 10, 10] for i in range(50000)], data_bit_depth=8)
-    f.write("test.test")
-    x = timeit.default_timer()
-    # print("Writing", x-s)
-    # exit()
-
-    f = File.read("test.test")
-    y = timeit.default_timer()
-    print("Writing", x-s)
-    print("reading", y-x)
-
-    
-    print(len(f.data))
-    for i in f.data:
-        for j in i:
-            assert j == 10
-
-    # writer = FileWriter("test.test")
-    # for i in range(100):
-    #     writer.write_n_bits(10, 10)
-    # writer.close()
-
-    # reader = FileReader("test.test")
-    # for i in range(10):
-    #     print(reader.read_n_bits(10))

@@ -13,7 +13,6 @@ class LossGenerator():  # TODO more params such as weights etc.
         self.whisper_loss = WhisperLoss(context_length, batch_size,3).to(device)
 
         self.losses = [self.discrim_ad_loss, self.discrim_loss, self.feature_loss, self.recon_loss, self.quantization_loss, self.whisper_loss]
-        # TODO feature loss
 
     def get_loss(self, x, y, discrim_y, feat_x, feat_y, quantization_loss):
         q = self.quantization_loss.get_value(quantization_loss)

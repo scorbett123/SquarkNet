@@ -12,7 +12,7 @@ def main():
 
     #m = models.Models(192, 4, 1024, upstrides=[2,4,6,8], device=device)
     m = models.Models.load("logs-t/epoch17/models.saved", device=device)
-    context_length = m.ctx_len*32
+    context_length = m.ctx_len * 32
 
     train_data = datasets.CommonVoice(context_length)
     valid_loader = datasets.CommonVoice(context_length, "test", length = 100)

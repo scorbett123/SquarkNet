@@ -11,7 +11,7 @@ class Loss(torch.nn.Module):
     def __init__(self, name: str, weight: float, normalize: bool=True) -> None:
         super().__init__()
         self.name = name
-        self.moving_average = moving_average.EMA(1000, beta=0.99)
+        self.moving_average = moving_average.EMA(1000, beta=0.999)
         self.plot_average = moving_average.SMA(25)  # should always be the same as the plot interval, need to figure out a way to make this so
         self._weight = weight
         self._normalize = normalize
@@ -21,7 +21,7 @@ class Loss(torch.nn.Module):
         self.plot_average.update(raw)
         #return raw
         if self._normalize:
-            return self._weight * (raw / (self.moving_average.update(raw.item()) * 0.999))  #  Reduce it slightly cause it gives better reliability
+            return self._weight * (raw / (self.moving_average.update(raw.item())))  #  Reduce it slightly cause it gives better reliability
         else:
             return self._weight * raw
     
