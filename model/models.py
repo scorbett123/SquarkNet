@@ -101,8 +101,11 @@ class Models(nn.Module):
         return hash_as_int
 
     
-    def load(folder_name="logs-t", device="cpu"):
-        m = torch.load(folder_name)
+    def load(folder_name, device="cpu"):
+        try:
+            m = torch.load(folder_name)
+        except IOError:
+            raise Exception("File doesn't exist")
 
         if hashlib.md5(m["models"]).digest() != m["model_hash"]:
             raise Exception("Invalid hash")

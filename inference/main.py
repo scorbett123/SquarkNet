@@ -143,15 +143,23 @@ class ModelSelectionWidget(QWidget):
         super().__init__()
         layout = QVBoxLayout()
         layout.addWidget(QLabel("Model Selection"))
-        self.file_select = FileSelectionWidget("Model File", "Model files (.saved)")
+        self.file_select = FileSelectionWidget("Model File", "Model files (*.saved)")
         self.file_select.file_chosen.connect(self.model_update)
 
         layout.addWidget(self.file_select)
         self.setLayout(layout)
 
     def model_update(self):
-        m = models.Models.load(self.file_select.filename)
-        self.updated.emit(m)
+        try:
+            m = models.Models.load(self.file_select.filename)
+            self.updated.emit(m)
+        except Exception as e:
+            button = QMessageBox.critical(
+                None,
+                "Error",
+                f"Failed to load model due to: {e}",
+                buttons=QMessageBox.StandardButton.Ok
+            )
 
 class ModelStatsWidget(QWidget):
     def __init__(self):
