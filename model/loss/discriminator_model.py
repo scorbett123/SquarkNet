@@ -6,7 +6,6 @@ from model import datasets
 from torch.utils.data import DataLoader
 import math
 from torch.utils.tensorboard import SummaryWriter
-writer = SummaryWriter(log_dir="logs_test/")
 LEAKY_RELU = 0.2
 INIT_MEAN = 0.0
 INIT_STD = 0.01
@@ -69,16 +68,19 @@ class MultiScaleSTFTDiscriminator(torch.nn.Module):
         return result, features  # D B L X Y to B D L X Y, keep batch first (convention)
 
 if __name__ == "__main__":
-    loader = DataLoader(datasets.LibriTTS(240*48), 20)
-    random_loader = DataLoader(datasets.RandomAudioDataset(240*48, 100), 20)
-    discrim = MultiScaleSTFTDiscriminator()
-    optim = torch.optim.Adam(discrim.parameters(),  lr=0.002, betas=[0.5, 0.9])
+    
+    writer = SummaryWriter(log_dir="logs_test/")    
+    multiscale = False
+    loader = DataLoader(datasets.LibriTTS(240*8), 20)
+    random_loader = DataLoader(datasets.RandomAudioDataset(240*8, 100), 20)
+    discrim = MultiScaleSTFTDiscriminator([512, 256]) if multiscale else STFTDiscriminator(256)
+    optim = torch.optim.Adam(discrim.parameters(),  lr=0.0005, betas=[0.5, 0.9])
     discrim.train()
+    i = 0
     while True:
-        for actual, random in zip(loader, random_loader):
-            x = discrim(actual)
-            y = discrim(random)
-
+        for _, (actual, random) in enumerate(zip(loader, random_loader)):
+            x = discrim(actual)[0]
+            y = discrim(random)[0]
             a = 1-x  # we want x to be high
             b = 1+y  # we want y to be low
             a[a<0] = 0  # if x already above 1 we want to ignore in the loss
@@ -88,6 +90,7 @@ if __name__ == "__main__":
             optim.zero_grad()
             loss.backward()
             optim.step()
-            print(loss)
-            writer.add_scalar("loss", loss.item())
+            print(i, loss)
+            writer.add_scalar("loss", loss.item(), i)
+            i += 1
 

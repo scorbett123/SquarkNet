@@ -5,7 +5,7 @@ import torch
 
 class InferenceTests(unittest.TestCase):
 
-    def test_aencode(self):  # should be run before decode incase model has changed
+    def test_aencode(self):
         model = models.Models.load("logs-t/epoch46/models.saved")
         input = "samples/epoch0/0-clean.wav"
         output = "test/a.sc"
