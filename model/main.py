@@ -10,8 +10,8 @@ def main():
     batch_size = 32
     device = "cuda" if torch.cuda.is_available() else "cpu"
 
-    #m = models.Models(192, 4, 1024, upstrides=[2,4,6,8], device=device)
-    m = models.Models.load("logs-t/epoch17/models.saved", device=device)
+    m = models.Models(256, 4, 1024, upstrides=[2,4,6,8], device=device)
+    # m = models.Models.load("logs-t/epoch17/models.saved", device=device)
     context_length = m.ctx_len * 32
 
     train_data = datasets.CommonVoice(context_length)
@@ -23,7 +23,7 @@ def main():
     loss_gen = LossGenerator(context_length, batch_size, device=device)
 
     #m = models.Models.load("logs-t/epoch23").to(device)
-    trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005)
+    trainer = train.Trainer(m, train_dataloader, valid_loader, loss_gen, device=device, learning_rate=0.00005, discrim_learning_rate=0.00005)
     while True:
         trainer.run_epoch()
         trainer.save_model(f"logs-t/epoch{m.epochs}/model.saved")

@@ -113,7 +113,10 @@ class Models(nn.Module):
         model_statedict = torch.load(io.BytesIO(m["models"]))
         params = m["params"]
         models = Models(params["n_channels"], params["nbooks"], params["ncodes"], epochs=params["epochs"], device=device)
-        models.load_state_dict(model_statedict)
+        try:
+            models.load_state_dict(model_statedict)
+        except Exception:
+            raise Exception("Invalid model file")
         return models
 
 
