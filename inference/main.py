@@ -132,9 +132,9 @@ class FileSelectionWidget(QFrame):
             '', self.filter)[0]
         
         if fname:
-            self.file_chosen.emit(fname)
             self._file_name.setText(fname)
             self.filename = fname
+            self.file_chosen.emit(fname)
 
 
 class ModelSelectionWidget(QWidget):
@@ -224,7 +224,7 @@ class EncodeDecodeWidget(QWidget):
 
 class EncodeWidget(EncodeDecodeWidget):
     def __init__(self, main_window):
-        super().__init__("Encode", "Audio files (*.wav)", "Audio files (*.sc)", main_window)
+        super().__init__("Encode", "Audio files (*.wav *.mp3 *.m4a *.flac)", "Audio files (*.sc)", main_window)
 
     def run(self):
         self.progress = ProgressBar(inference.wav_to_sc,(self.input_select.filename, self.output_select.filename, self.model), self.main_window)
@@ -234,7 +234,7 @@ class EncodeWidget(EncodeDecodeWidget):
 
 class DecodeWidget(EncodeDecodeWidget):
     def __init__(self, main_window):
-        super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav)", main_window)
+        super().__init__("Decode", "Audio files (*.sc)", "Audio files (*.wav *.mp3 *.m4a *.flac)", main_window)
 
     def run(self):
         self.progress = ProgressBar(inference.sc_to_wav, (self.input_select.filename, self.output_select.filename, self.model), self.main_window)
