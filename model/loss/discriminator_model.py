@@ -68,19 +68,20 @@ class MultiScaleSTFTDiscriminator(torch.nn.Module):
         return result, features  # D B L X Y to B D L X Y, keep batch first (convention)
 
 if __name__ == "__main__":
-    
-    writer = SummaryWriter(log_dir="logs_test/")    
+     
+    writer = SummaryWriter(log_dir="logs_test/")   
     multiscale = False
-    loader = DataLoader(datasets.LibriTTS(240*8), 20)
-    random_loader = DataLoader(datasets.RandomAudioDataset(240*8, 100), 20)
+    loader = DataLoader(datasets.LibriTTS(240*8), 10)
+    random_loader = DataLoader(datasets.RandomAudioDataset(240*8, 1000), 10)
     discrim = MultiScaleSTFTDiscriminator([512, 256]) if multiscale else STFTDiscriminator(256)
-    optim = torch.optim.Adam(discrim.parameters(),  lr=0.0005, betas=[0.5, 0.9])
+    optim = torch.optim.Adam(discrim.parameters(),  lr=0.02, betas=[0.5, 0.9])
     discrim.train()
     i = 0
     while True:
         for _, (actual, random) in enumerate(zip(loader, random_loader)):
             x = discrim(actual)[0]
             y = discrim(random)[0]
+            print(torch.mean(x), torch.mean(y))
             a = 1-x  # we want x to be high
             b = 1+y  # we want y to be low
             a[a<0] = 0  # if x already above 1 we want to ignore in the loss
