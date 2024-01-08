@@ -114,8 +114,8 @@ class FileSelectionWidget(QFrame):
         self.select_button.clicked.connect(self.choose_file)
         layout.addWidget(self.select_button)
         
-        self._file_name = QLabel("No file selected")
-        layout.addWidget(self._file_name)
+        self.file_name_widget = QLabel("No file selected")
+        layout.addWidget(self.file_name_widget)
 
         self.main_widget = QWidget()
         self.setLayout(layout)

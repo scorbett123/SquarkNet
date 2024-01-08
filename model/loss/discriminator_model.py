@@ -65,7 +65,7 @@ class MultiScaleSTFTDiscriminator(torch.nn.Module):
             logit, disc_feature = discrim(x)
             result = torch.concat((logit.unsqueeze(0).transpose(0, 1), result), dim=1)
             features.append(disc_feature)
-        return result, features  # D B L X Y to B D L X Y, keep batch first (convention)
+        return result, features
 
 if __name__ == "__main__":
      

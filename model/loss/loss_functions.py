@@ -42,14 +42,14 @@ class ReconstructionLossFreq(Loss):
         self._specs = torch.nn.ModuleList([torchaudio.transforms.MelSpectrogram(16000, n_mels=80, n_fft=2 ** (i+1), win_length=2**i, hop_length=2 ** (i-2), f_max=8000, f_min=0) for i in range(9, 10)])  #  see if the values here are reasonable, could well be way off
         self._beta = beta
 
-    def loss_for_spec(self, x, y, spec) -> torch.Tensor:
+    def _loss_for_spec(self, x, y, spec) -> torch.Tensor:
         xs, ys = spec(x), spec(y)
         return F.l1_loss(xs, ys) + self._beta * F.mse_loss(xs, ys)  # TODO soundstream seems to take a log here, could fix the problem of mse being so much higher than l1
 
     def get_raw_value(self, x, y):
         total = 0.0
         for spec in self._specs:  #  can't use list comprehension here as pytorch then plays tricks
-            total = total + self.loss_for_spec(x, y, spec)
+            total = total + self._loss_for_spec(x, y, spec)
         return total / len(self._specs)
     
 class ReconstructionLossTime(Loss):  # From what I can tell the ONLY purpose of this is making silence actually silent, some noise can escape the freq loss.
@@ -107,12 +107,12 @@ class WhisperLoss(Loss):
         self._batch_size = batch_size
         self._ctx_len = context_length
 
-        self._wanted_bsize, self._padding, self._target_length = self.calc_operations(context_length, batch_size)  #  TODO sort this line out
+        self._wanted_bsize, self._padding, self._target_length = self._calc_operations(context_length, batch_size)  #  TODO sort this line out
         
         self.whisper = whisper.load_model("tiny.en")
         self.melspec = WhisperMel()
 
-    def calc_operations(self, ctx_len, batch_size):
+    def _calc_operations(self, ctx_len, batch_size) -> (int, int, int):
         candidates = [i for i in WhisperLoss.WHISPER_EXPECTED_FACTORS if i > ctx_len + WhisperLoss.MIN_PADDING]
         aimed_length = candidates[0]  # just take the first, will be the most efficient
         padding = aimed_length - ctx_len
@@ -124,10 +124,10 @@ class WhisperLoss(Loss):
         return (wanted_batch_size, padding, aimed_length)
 
     
-    def get_intermediate(self, x):
+    def _get_intermediate(self, x) -> torch.Tensor:
         return self.whisper.encoder(x)
     
-    def process_batch(self, x):
+    def _process_batch(self, x) -> torch.Tensor:
         x = torch.nn.functional.pad(x, (0, self._padding))
 
         if x.shape[0] != self._wanted_bsize:  # make up the dimensions to 
@@ -139,12 +139,12 @@ class WhisperLoss(Loss):
     
     def get_raw_value(self, x, y) -> torch.Tensor:
         if self.training:
-            xp, yp = self.process_batch(x), self.process_batch(y)
+            xp, yp = self._process_batch(x), self._process_batch(y)
         else:
             xp, yp = torch.squeeze(x, 1), torch.squeeze(y, 1)
 
         xspec, yspec = self.melspec(xp), self.melspec(yp)
-        xw, yw = self.get_intermediate(xspec), self.get_intermediate(yspec)
+        xw, yw = self._get_intermediate(xspec), self._get_intermediate(yspec)
 
         return F.l1_loss(xw, yw) + self._beta * F.mse_loss(xw, yw)
     

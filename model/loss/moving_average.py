@@ -4,7 +4,7 @@ import torch
 class MovingAverage(nn.Module):
     def __init__(self, context_len: int, intial_val=1) -> None:
         super().__init__()
-        self.register_buffer("_window", torch.fill(torch.empty(context_len, dtype=torch.float32), intial_val))
+        self.register_buffer("_window", torch.fill(torch.empty(context_len, dtype=torch.float32, requires_grad=False), intial_val))
         self.average = intial_val
         self._context_len = context_len
 

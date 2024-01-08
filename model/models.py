@@ -205,7 +205,7 @@ class Encoder(nn.Module):
         x = F.leaky_relu(x, LEAKY_RELU)
         x = self.conv2(x)
         y = F.tanh(x)
-        return x
+        return y
     
 class Decoder(nn.Module):
     def __init__(self, endChannels, upstrides=[2,4,6,8], base_width=256) -> None:

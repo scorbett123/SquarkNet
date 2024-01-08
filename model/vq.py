@@ -17,8 +17,6 @@ class VectorCache():
     def concat(self) -> torch.Tensor:
         return torch.cat(self._vectors, dim=0)
 
-
-
 class VQ(nn.Module):
     def __init__(self, codebook_size, codeword_size, n=1, beta=0.2) -> None:
         super().__init__()
@@ -27,7 +25,7 @@ class VQ(nn.Module):
         self.encoder_fit_vq_factor = beta
 
         self.embedding = nn.Parameter(torch.zeros((codebook_size, codeword_size)))
-        self.embedding.data.uniform_(-1.0 / (n**2), 1.0 / (n**2)) # TODO Use k-means on first batch to attempt to give better initialization, also add dead 
+        self.embedding.data.uniform_(-1.0 / (n**2), 1.0 / (n**2))
 
         usages = torch.zeros((codebook_size), requires_grad=False)
         self.register_buffer('usages', usages)
@@ -42,6 +40,11 @@ class VQ(nn.Module):
         
         self.usages[:] = torch.zeros((self.codebook_size), requires_grad=False)
     
+    def decode(self, indexes):
+        one_hot = F.one_hot(indexes, num_classes=self.codebook_size).float()
+        values = torch.matmul(one_hot, self.embedding)
+        return values
+
     @torch.no_grad()
     def frozen_kmeans(self, cached, fronzen_state, kmeans_iters=5):
         frozen_length = torch.sum(fronzen_state).to(torch.int32)  # shorthand for count boolean
@@ -142,13 +145,6 @@ class RVQ(torch.nn.Module):
         for i, q in enumerate(self.quantizers):
             result += q.decode(indices[..., i])
         return result
-    
-    def initialise(self, x):
-        residual = x
-        for q in self.quantizers:
-            q.initialise(residual)
-            q_values, _, _ = q(residual)
-            residual = residual - q_values
 
     def deal_with_dead(self):
         for q in self.quantizers:
